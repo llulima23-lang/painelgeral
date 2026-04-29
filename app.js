@@ -566,6 +566,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (activePanelId === 'quartil') {
                     const q1Stats = {};
+                    const q2Stats = {};
+                    const q3Stats = {};
                     const q4Stats = {};
                     const distCount = {'1º Quartil': 0, '2º Quartil': 0, '3º Quartil': 0, '4º Quartil': 0};
 
@@ -579,8 +581,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             q1Stats[op.agente].count++;
                             if(!q1Stats[op.agente].meses.includes(mesStr)) q1Stats[op.agente].meses.push(mesStr);
                         }
-                        else if(rawQ.includes('2')) distCount['2º Quartil']++;
-                        else if(rawQ.includes('3')) distCount['3º Quartil']++;
+                        else if(rawQ.includes('2')) {
+                            distCount['2º Quartil']++;
+                            if(!q2Stats[op.agente]) q2Stats[op.agente] = {count: 0, meses: []};
+                            q2Stats[op.agente].count++;
+                            if(!q2Stats[op.agente].meses.includes(mesStr)) q2Stats[op.agente].meses.push(mesStr);
+                        }
+                        else if(rawQ.includes('3')) {
+                            distCount['3º Quartil']++;
+                            if(!q3Stats[op.agente]) q3Stats[op.agente] = {count: 0, meses: []};
+                            q3Stats[op.agente].count++;
+                            if(!q3Stats[op.agente].meses.includes(mesStr)) q3Stats[op.agente].meses.push(mesStr);
+                        }
                         else if(rawQ.includes('4')) {
                             distCount['4º Quartil']++;
                             if(!q4Stats[op.agente]) q4Stats[op.agente] = {count: 0, meses: []};
@@ -610,7 +622,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
 
                     renderQCards(q1Stats, 'quartil1Cards', 'fas fa-star', 'badge-1q');
-                    renderQCards(q4Stats, 'quartilCards', 'fas fa-exclamation-triangle', 'badge-4q');
+                    renderQCards(q2Stats, 'quartil2Cards', 'fas fa-medal', 'badge-2q');
+                    renderQCards(q3Stats, 'quartil3Cards', 'fas fa-award', 'badge-3q');
+                    renderQCards(q4Stats, 'quartil4Cards', 'fas fa-exclamation-triangle', 'badge-4q');
 
                     if(charts.quartilDist) charts.quartilDist.destroy();
                     const ctxDist = document.getElementById('chartQuartilDist');
