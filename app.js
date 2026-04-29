@@ -607,13 +607,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!container) return;
                         container.innerHTML = '';
                         if(arr.length === 0) container.innerHTML = '<div style="color:var(--text-secondary); padding: 20px;">Nenhum operador registrado.</div>';
+                        
+                        let colorHex = 'var(--text-primary)';
+                        if (colorClass === 'badge-1q') colorHex = 'var(--accent-emerald)';
+                        if (colorClass === 'badge-2q') colorHex = 'var(--accent-blue)';
+                        if (colorClass === 'badge-3q') colorHex = 'var(--accent-amber)';
+                        if (colorClass === 'badge-4q') colorHex = 'var(--accent-rose)';
+
                         arr.forEach((item, idx) => {
                             container.innerHTML += `
                                 <div class="q-card ${idx < 3 ? 'highlight' : ''}" style="${idx < 3 && colorClass === 'badge-1q' ? 'border-color: rgba(16,185,129,0.3); animation: pulse-glow-green 2s infinite;' : ''}">
                                     <div class="q-rank" style="background: var(--bg-secondary); border: 1px solid var(--border);">#${idx+1}</div>
                                     <div class="q-info">
                                         <div class="q-name">${item[0]}</div>
-                                        <div class="q-count" style="color: ${colorClass === 'badge-1q' ? 'var(--accent-emerald)' : 'var(--accent-rose)'}"><i class="${iconClass}"></i> ${item[1].count} vezes</div>
+                                        <div class="q-count" style="color: ${colorHex}"><i class="${iconClass}"></i> ${item[1].count} vezes</div>
                                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;"><strong>Meses:</strong> ${item[1].meses.join(', ')}</div>
                                     </div>
                                 </div>
