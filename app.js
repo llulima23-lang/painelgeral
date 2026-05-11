@@ -712,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (activePanelId === 'comparativo') {
-                const mesesOrdemMap = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+                const mesesOrdemMap = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
                 const compDataByYear = { '2024': {}, '2025': {}, '2026': {} };
                 const compLabelsSet = new Set();
                 unifiedMeta.forEach(d => {
