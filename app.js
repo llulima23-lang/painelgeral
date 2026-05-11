@@ -2,20 +2,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initApp = () => {
         // Formatters
-        const formatBRL = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val || 0);
-        const formatNum = (val) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(val || 0);
-        const formatPct = (val) => new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(val || 0);
+        const formatBRL = (v) => v !== undefined && v !== null ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
+        const formatNum = (v) => v !== undefined && v !== null ? v.toLocaleString('pt-BR') : '0';
+        const formatPct = (v) => v !== undefined && v !== null ? (v * 100).toFixed(2).replace('.', ',') + '%' : '0,00%';
 
-        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026 } = DASHBOARD_DATA;
+        const normalizeName = (name) => {
+            if (!name) return '';
+            return name.toString().toUpperCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+                .replace(/[^A-Z0-9]/g, ''); // Keep only alphanumeric
+        };
+
+        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026, abs_geral_timeline } = DASHBOARD_DATA;
+        const absData = DASHBOARD_DATA.abs_data || {};
+        const absGeralTimeline = abs_geral_timeline || [];
 
         const normalizeMonth = (m) => {
             if (!m) return '';
-            let str = m;
-            if (m.includes('-') && m.includes('T')) {
-                const date = new Date(m);
-                if (!isNaN(date)) str = date.toLocaleDateString('pt-BR', { month: 'long', timeZone: 'UTC' });
+            let monthIdx = -1;
+            if (typeof m === 'string' && m.includes('-')) {
+                const parts = m.split('-');
+                if (parts.length >= 2) monthIdx = parseInt(parts[1]) - 1;
             }
-            return str.toUpperCase().trim().replace('Ç', 'C').replace('ç', 'c');
+            const months = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+            if (monthIdx >= 0 && monthIdx < 12) return months[monthIdx];
+            
+            const date = new Date(m);
+            if (isNaN(date)) return m.toString().toLowerCase().replace('ç','c').replace('ã','a').replace('á','a').replace('é','e').replace('ê','e').replace('í','i').replace('ó','o').replace('ô','o').replace('ú','u');
+            return months[date.getUTCMonth()];
+        };
+
+        // ── Normalize month to accent-free lowercase (used consistently everywhere)
+        const MONTHS_NORM = {
+            'JANEIRO':'janeiro','FEVEREIRO':'fevereiro','MARCO':'marco','MARCO':'marco',
+            'ABRIL':'abril','MAIO':'maio','JUNHO':'junho','JULHO':'julho',
+            'AGOSTO':'agosto','SETEMBRO':'setembro','OUTUBRO':'outubro',
+            'NOVEMBRO':'novembro','DEZEMBRO':'dezembro',
+            'JAN':'janeiro','FEV':'fevereiro','MAR':'marco','ABR':'abril',
+            'MAI':'maio','JUN':'junho','JUL':'julho','AGO':'agosto',
+            'SET':'setembro','OUT':'outubro','NOV':'novembro','DEZ':'dezembro'
+        };
+        const stripAccents = (s) => s ? s.toString()
+            .replace(/[çÇ]/g,'c').replace(/[ãÃáÁâÂàÀ]/g,'a')
+            .replace(/[éÉêÊ]/g,'e').replace(/[íÍ]/g,'i')
+            .replace(/[óÓôÔ]/g,'o').replace(/[úÚ]/g,'u') : '';
+        const monthNameToNorm = (s) => {
+            if (!s) return '';
+            const up = stripAccents(s.toString().toUpperCase().trim());
+            if (MONTHS_NORM[up]) return MONTHS_NORM[up];
+            for (const [k,v] of Object.entries(MONTHS_NORM)) {
+                if (up.startsWith(stripAccents(k))) return v;
+            }
+            return stripAccents(s.toString().toLowerCase());
         };
 
         const timeToSec = (t) => {
@@ -33,29 +71,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const unifiedMeta = [];
         const addToUnified = (item, ano) => {
-            if (!item.mes || item.mes === 'MÊS' || item.mes === 'MS') return;
+            const mesRaw = item.mes;
+            if (!mesRaw || mesRaw === 'MÊS' || mesRaw === 'MES') return;
+            const mesNorm = typeof mesRaw === 'string' && mesRaw.includes('-')
+                ? normalizeMonth(mesRaw)
+                : monthNameToNorm(mesRaw);
+            if (!mesNorm) return;
             unifiedMeta.push({
                 ano: ano || item.ano || 2024,
-                mes: normalizeMonth(item.mes),
+                mes: mesNorm,
                 operacao: item.operacao || 'N/A',
-                arrecadado: item.arrecadado || item.faturamento || 0,
+                arrecadado: item.arrecadado || item.ho || item.faturamento || 0,
                 meta: item.meta || 0
             });
         };
 
+        // --- Build unifiedMeta ---
         meta2024.forEach(d => addToUnified(d, 2024));
         meta2025.forEach(d => addToUnified(d, 2025));
         if (meta_cnu) meta_cnu.forEach(d => addToUnified(d, d.ano));
 
-        if (fechamentos2026 && fechamentos2026.length > 1) {
-            fechamentos2026.slice(1).forEach(row => {
-                if (row[0] && row[0] !== 'MÊS') {
-                    unifiedMeta.push({
-                        ano: 2026, mes: normalizeMonth(row[0]), operacao: row[1] || 'N/A',
-                        arrecadado: row[2] || 0, meta: row[3] || 0
-                    });
-                }
-            });
+        if (fechamentos2026) {
+            fechamentos2026.forEach(d => addToUnified(d, 2026));
         }
 
         const getTeams = (arr) => {
@@ -68,13 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const eqMeta = getTeams(unifiedMeta);
         const eqOper = getTeams(operadores);
 
-        const mesesOrdemOriginal = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+        // Month display names (accented for UI) mapped to normalized accent-free values
+        const mesesOrdemOriginal = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+        const mesesNormValues   = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
         // HTML generator for filters
         const buildFiltersHTML = (panelId, teams, showQuartil = false) => {
             let teamsHTML = teams.map(t => `<label><input type="checkbox" value="${t}" class="opt-cb" checked> ${t}</label>`).join('');
-            let mesesHTML = mesesOrdemOriginal.map(m => `<label><input type="checkbox" value="${normalizeMonth(m)}" class="opt-cb" checked> ${m}</label>`).join('');
-            let anosHTML = [2024, 2025, 2026].map(a => `<label><input type="checkbox" value="${a}" class="opt-cb" ${a === 2025 ? 'checked' : ''}> ${a}</label>`).join('');
+            let mesesHTML = mesesOrdemOriginal.map((m, i) => `<label><input type="checkbox" value="${mesesNormValues[i]}" class="opt-cb" checked> ${m}</label>`).join('');
+            let anosHTML = [2024, 2025, 2026].map(a => `<label><input type="checkbox" value="${a}" class="opt-cb" ${a === 2026 ? 'checked' : ''}> ${a}</label>`).join('');
             
             let html = `
                 <div class="filter-group">
@@ -163,9 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Initial text setup
                 const updateText = () => {
                     const checkedCount = cbs.filter(cb => cb.checked).length;
-                    if (checkedCount === 0) textSpan.textContent = 'Nenhum selecionado';
+                    if (checkedCount === 0) textSpan.textContent = 'Nenhum';
                     else if (checkedCount === cbs.length) textSpan.textContent = `Todos`;
-                    else textSpan.textContent = `${checkedCount} selecionados`;
+                    else {
+                        const selectedNames = cbs.filter(cb => cb.checked).map(cb => cb.value);
+                        if (selectedNames.length <= 2) textSpan.textContent = selectedNames.join(', ');
+                        else textSpan.textContent = `${checkedCount} itens`;
+                    }
                     
                     // Only render if this filter belongs to the currently active panel
                     const parentPanel = el.closest('.panel');
@@ -183,6 +226,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     cb.addEventListener('change', () => {
                         selectAll.checked = cbs.every(c => c.checked);
                         updateText();
+                        
+                        // Handle dynamic filtering for teams if month or year changed
+                        if (el.classList.contains('dd-mes') || el.classList.contains('dd-ano')) {
+                            const panel = el.closest('.panel');
+                            if (panel) {
+                                updateTeamFilter(panel.id.replace('panel-', ''));
+                            }
+                        }
                     });
                 });
 
@@ -197,6 +248,96 @@ document.addEventListener('DOMContentLoaded', () => {
                 const optionsContainer = el.querySelector('.options-container');
                 if(optionsContainer) optionsContainer.addEventListener('click', e => e.stopPropagation());
             });
+        };
+
+        const updateTeamFilter = (panelId) => {
+            const panel = document.getElementById(`panel-${panelId}`);
+            if (!panel) return;
+            
+            const selMes = getSelected(panelId, 'dd-mes');
+            const selAno = getSelected(panelId, 'dd-ano');
+            const teamContainer = panel.querySelector('.dd-equipe .options-list');
+            if (!teamContainer) return;
+
+            // Find available teams for the selected period
+            const availableTeams = new Set();
+            
+            if (panelId === 'overview') {
+                // Check Production data
+                producao_operacoes.forEach(d => {
+                    if (!d.mes || !d.operacao) return;
+                    const mNorm = d.mes;
+                    const year = (d.ano || "").toString();
+                    if ((selMes.length === 0 || selMes.includes(mNorm)) && (selAno.length === 0 || selAno.includes(year))) {
+                        availableTeams.add(d.operacao);
+                    }
+                });
+                // Also check Faturamento data (unifiedMeta)
+                unifiedMeta.forEach(d => {
+                    if ((selMes.length === 0 || selMes.includes(d.mes)) && (selAno.length === 0 || selAno.includes(d.ano.toString()))) {
+                        if (d.operacao) availableTeams.add(d.operacao);
+                    }
+                });
+            } else if (panelId === 'faturamento' || panelId === 'comparativo') {
+                unifiedMeta.forEach(d => {
+                    if (selMes.includes(d.mes) && selAno.includes(d.ano.toString())) {
+                        if (d.operacao) availableTeams.add(d.operacao);
+                    }
+                });
+            } else {
+                operadores.forEach(o => {
+                    if (o.mes) {
+                        const mNorm = o.mes;
+                        const year = (o.ano || "").toString();
+                        if ((selMes.length === 0 || selMes.includes(mNorm)) && (selAno.length === 0 || selAno.includes(year))) {
+                            if (o.operacao) availableTeams.add(o.operacao);
+                        }
+                    }
+                });
+            }
+
+            const teams = Array.from(availableTeams).sort();
+            const currentSelected = getSelected(panelId, 'dd-equipe');
+            
+            // Check if any of the previously selected teams are still available
+            const stillAvailable = teams.filter(t => currentSelected.includes(t));
+            const shouldCheckAll = currentSelected.length === 0 || stillAvailable.length === 0;
+
+            teamContainer.innerHTML = teams.map(t => 
+                `<label><input type="checkbox" value="${t}" class="opt-cb" ${shouldCheckAll || currentSelected.includes(t) ? 'checked' : ''}> ${t}</label>`
+            ).join('');
+
+
+            // Re-bind events
+            const cbs = Array.from(teamContainer.querySelectorAll('.opt-cb'));
+            const selectAll = panel.querySelector('.dd-equipe .selectAll');
+            const textSpan = panel.querySelector('.dd-equipe .select-box span');
+
+            const updateText = () => {
+                const checkedCount = cbs.filter(cb => cb.checked).length;
+                if (checkedCount === 0) textSpan.textContent = 'Nenhum';
+                else if (checkedCount === cbs.length) textSpan.textContent = `Todos`;
+                else {
+                    const selectedNames = cbs.filter(cb => cb.checked).map(cb => cb.value);
+                    if (selectedNames.length <= 2) textSpan.textContent = selectedNames.join(', ');
+                    else textSpan.textContent = `${checkedCount} itens`;
+                }
+                renderCharts();
+            };
+
+            selectAll.checked = cbs.every(c => c.checked);
+            
+            cbs.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    selectAll.checked = cbs.every(c => c.checked);
+                    updateText();
+                });
+            });
+
+            selectAll.onchange = (e) => {
+                cbs.forEach(cb => cb.checked = e.target.checked);
+                updateText();
+            };
         };
 
         initSelects();
@@ -267,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!val1 || !val2) return false;
             const s1 = val1.toLowerCase().replace(/[^a-z0-9]/g, '');
             const s2 = val2.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return s1.includes(s2) || s2.includes(s1);
+            return s1 === s2 || s1.includes(s2) || s2.includes(s1);
         };
 
         function renderCharts() {
@@ -280,104 +421,209 @@ document.addEventListener('DOMContentLoaded', () => {
             const selQuartilProm = getSelected(activePanelId, 'dd-quartil-prom');
 
             if (activePanelId === 'overview') {
-                let filteredOps = producao_operacoes.filter(d => {
+                // ─── Helper: get ABS key (YYYY-MM) from a date string like "2026-01-01T00:00:00"
+                const getAbsKey = (mesStr) => {
+                    if (!mesStr) return null;
+                    const d = new Date(mesStr);
+                    if (isNaN(d)) return null;
+                    const y = d.getUTCFullYear();
+                    const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+                    return `${y}-${m}`;
+                };
+
+                // ─── Filter producao_operacoes by team + month + year
+                const filteredOps = producao_operacoes.filter(d => {
                     if (!selEq.some(eq => opMatches(d.operacao, eq))) return false;
-                    if (d.mes) {
-                        const date = new Date(d.mes);
-                        if (!isNaN(date)) {
-                            const mName = normalizeMonth(d.mes);
-                            const year = date.getUTCFullYear().toString();
-                            if (!selMes.includes(mName)) return false;
-                            if (!selAno.includes(year)) return false;
-                        }
-                    } else return false;
+                    if (!d.mes) return false;
+                    
+                    const mNorm = d.mes;
+                    const year = (d.ano || "").toString();
+                    
+                    if (selAno.length > 0 && !selAno.includes(year)) return false;
+                    if (selMes.length > 0 && !selMes.includes(mNorm)) return false;
                     return true;
                 });
 
+                // ─── Group by team — aggregate from PRODUÇÃO OPERAÇÕES
                 const groupedOps = {};
-                filteredOps.forEach(d => {
-                    const eq = d.operacao || 'Outros';
-                    if(!groupedOps[eq]) groupedOps[eq] = {ho: 0, alo: 0, cpc: 0, promessa: 0};
-                    groupedOps[eq].ho += (d.ho || 0);
-                    groupedOps[eq].alo += (d.alo || 0);
-                    groupedOps[eq].cpc += (d.cpc || 0);
-                    groupedOps[eq].promessa += (d.promessa || 0);
+                selEq.forEach(team => {
+                    groupedOps[team] = {
+                        ho: 0, promessa: 0, cpc: 0,
+                        qSum: 0, qCount: 0,
+                        pSum: 0, pCount: 0,
+                        absSum: 0, absCount: 0, faltas: 0
+                    };
                 });
 
-                const totalHO = Object.values(groupedOps).reduce((s, a) => s + a.ho, 0);
-                document.getElementById('kpiOverview').innerHTML = `
-                    <div class="kpi-card blue"><div class="kpi-icon"><i class="fas fa-coins"></i></div><div class="kpi-value">${formatBRL(totalHO)}</div><div class="kpi-label">Faturamento Selecionado</div></div>
-                    <div class="kpi-card green"><div class="kpi-icon"><i class="fas fa-chart-line"></i></div><div class="kpi-value">${formatNum(Object.values(groupedOps).reduce((s, a) => s + a.promessa, 0))}</div><div class="kpi-label">Total Promessas</div></div>
-                    <div class="kpi-card amber"><div class="kpi-icon"><i class="fas fa-phone"></i></div><div class="kpi-value">${formatNum(Object.values(groupedOps).reduce((s, a) => s + a.alo, 0))}</div><div class="kpi-label">Total ALÔs</div></div>
-                    <div class="kpi-card rose"><div class="kpi-icon"><i class="fas fa-user-check"></i></div><div class="kpi-value">${formatNum(Object.values(groupedOps).reduce((s, a) => s + a.cpc, 0))}</div><div class="kpi-label">Total CPC</div></div>
+                // ─── Phase 1: Aggregate Faturamento from unifiedMeta (Now comprehensive for 2026)
+                unifiedMeta.forEach(d => {
+                    const mName = d.mes;
+                    const year = d.ano.toString();
+                    if (!selMes.includes(mName)) return;
+                    if (!selAno.includes(year)) return;
+                    
+                    const matchTeam = selEq.find(t => opMatches(d.operacao, t));
+                    if (!matchTeam) return;
+                    
+                    groupedOps[matchTeam].ho += Number(d.arrecadado || d.ho || 0);
+                });
+
+                // ─── Phase 2: Aggregate Operational KPIs from filteredOps
+                filteredOps.forEach(d => {
+                    const matchTeam = selEq.find(t => opMatches(d.operacao, t));
+                    if (!matchTeam) return;
+                    
+                    const g = groupedOps[matchTeam];
+                    
+                    // CPC, Promessa are totals -> Sum them
+                    g.promessa += Number(d.promessa || 0);
+                    g.cpc      += Number(d.cpc || 0);
+                    
+                    // Qualidade, Pausa are percentages -> Average them
+                    if (d.qualidade !== null && d.qualidade !== undefined && !isNaN(d.qualidade)) {
+                        g.qSum += Number(d.qualidade); g.qCount++;
+                    }
+                    if (d.pct_pausa !== null && d.pct_pausa !== undefined && !isNaN(d.pct_pausa)) {
+                        g.pSum += Number(d.pct_pausa); g.pCount++;
+                    }
+                });
+
+                // ─── Build list of keys (unused for ABS now, but keeping month order logic if needed)
+                const totalHO   = Object.values(groupedOps).reduce((s, a) => s + a.ho, 0);
+                const totalCPC  = Object.values(groupedOps).reduce((s, a) => s + a.cpc, 0);
+                const totalProm = Object.values(groupedOps).reduce((s, a) => s + a.promessa, 0);
+
+                const withQ  = Object.values(groupedOps).filter(m => m.qCount > 0);
+                const withP  = Object.values(groupedOps).filter(m => m.pCount > 0);
+                const avgQual  = withQ.length > 0 ? withQ.reduce((s,m) => s + m.qSum/m.qCount, 0) / withQ.length : 0;
+                const avgPausa = withP.length > 0 ? withP.reduce((s,m) => s + m.pSum/m.pCount, 0) / withP.length : 0;
+
+                // ─── Phase 3: ABS Geral from the new timeline source
+                let absGeralSum = 0, absGeralCount = 0;
+                absGeralTimeline.forEach(d => {
+                    if (selMes.includes(d.mes) && selAno.includes(d.ano.toString())) {
+                        absGeralSum += (d.abs || 0);
+                        absGeralCount++;
+                    }
+                });
+                const absGeralFinal = absGeralCount > 0 ? absGeralSum / absGeralCount : 0;
+
+                const kpiOverview = document.getElementById('kpiOverview');
+                kpiOverview.innerHTML = `
+                    <div class="kpi-card blue kpi-small"><div class="kpi-icon"><i class="fas fa-coins"></i></div><div class="kpi-value small-val">${formatBRL(totalHO)}</div><div class="kpi-label">Total H.O</div></div>
+                    <div class="kpi-card green kpi-small"><div class="kpi-icon"><i class="fas fa-handshake"></i></div><div class="kpi-value small-val">${formatNum(totalProm)}</div><div class="kpi-label">Total Promessas</div></div>
+                    <div class="kpi-card rose kpi-small"><div class="kpi-icon"><i class="fas fa-user-check"></i></div><div class="kpi-value small-val">${formatNum(totalCPC)}</div><div class="kpi-label">Total CPC</div></div>
+                    <div class="kpi-card amber kpi-small"><div class="kpi-icon"><i class="fas fa-star"></i></div><div class="kpi-value small-val">${formatPct(avgQual)}</div><div class="kpi-label">Média Qualidade</div></div>
+                    <div class="kpi-card purple kpi-small"><div class="kpi-icon"><i class="fas fa-pause-circle"></i></div><div class="kpi-value small-val">${formatPct(avgPausa)}</div><div class="kpi-label">Média % Pausa</div></div>
+                    <div class="kpi-card cyan kpi-small"><div class="kpi-icon"><i class="fas fa-user-slash"></i></div><div class="kpi-value small-val">${formatPct(absGeralFinal)}</div><div class="kpi-label">ABS Geral</div></div>
                 `;
 
+                // ─── Indicadores por Equipe (team cards)
                 const teamCardsContainer = document.getElementById('teamCards');
                 teamCardsContainer.innerHTML = '';
+                const colors = ['blue', 'green', 'amber', 'rose', 'purple', 'cyan'];
                 Object.keys(groupedOps).sort((a,b) => groupedOps[b].ho - groupedOps[a].ho).forEach((team, i) => {
-                    const colors = ['blue', 'green', 'amber', 'rose', 'purple', 'cyan'];
                     const c = colors[i % colors.length];
+                    const g = groupedOps[team];
+                    const qual = g.qCount > 0 ? g.qSum / g.qCount : 0;
+                    const pau  = g.pCount > 0 ? g.pSum / g.pCount : 0;
                     teamCardsContainer.innerHTML += `
                         <div class="kpi-card ${c}">
-                            <div class="kpi-label" style="font-size: 0.85rem; color: #fff; margin-bottom: 10px; font-weight: 700;">${team.substring(0, 30)}</div>
-                            <div class="kpi-value" style="font-size: 1.3rem;">${formatBRL(groupedOps[team].ho)}</div>
-                            <div style="font-size: 0.75rem; margin-top: 8px; color: var(--text-secondary);">
-                                <i class="fas fa-check-circle"></i> CPC: ${formatNum(groupedOps[team].cpc)} | <i class="fas fa-handshake"></i> PROM: ${formatNum(groupedOps[team].promessa)}
+                            <div class="kpi-label" style="font-size:0.85rem;color:#fff;margin-bottom:10px;font-weight:700;">${team.substring(0,35)}</div>
+                            <div class="kpi-value" style="font-size:1.3rem;">${formatBRL(g.ho)}</div>
+                            <div style="font-size:0.75rem;margin-top:8px;color:var(--text-secondary);">
+                                <i class="fas fa-check-circle"></i> CPC: ${formatNum(g.cpc)} &nbsp;|&nbsp; <i class="fas fa-handshake"></i> PROM: ${formatNum(g.promessa)}
+                            </div>
+                            <div style="font-size:0.75rem;margin-top:6px;color:rgba(255,255,255,0.9);display:flex;gap:10px;flex-wrap:wrap;">
+                                <span><i class="fas fa-star"></i> QUALID: ${formatPct(qual)}</span>
+                                <span><i class="fas fa-pause-circle"></i> PAUSA: ${formatPct(pau)}</span>
                             </div>
                         </div>
                     `;
                 });
 
+                // ─── Chart: Linha do Tempo (H.O por mês — Source: Combined)
                 const timeSeries = {};
-                filteredOps.forEach(d => {
-                    if(!d.mes) return;
-                    const dt = new Date(d.mes);
-                    if(isNaN(dt)) return;
-                    const mKey = `${dt.toLocaleDateString('pt-BR', {month: 'short', timeZone:'UTC'})} ${dt.getUTCFullYear()}`;
-                    if(!timeSeries[mKey]) timeSeries[mKey] = { sortVal: dt.getTime() };
-                    const eq = d.operacao || 'Outros';
-                    if(!timeSeries[mKey][eq]) timeSeries[mKey][eq] = 0;
-                    timeSeries[mKey][eq] += d.ho || 0;
+                const addToTS = (op, val, mNorm, year) => {
+                    const mIdx = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'].indexOf(mNorm);
+                    const dtSort = parseInt(year) * 100 + (mIdx >= 0 ? mIdx : 0);
+                    const mShort = mNorm.substring(0, 3).toUpperCase();
+                    const mKey = `${mShort} ${year}`;
+                    
+                    if (!timeSeries[mKey]) timeSeries[mKey] = { sortVal: dtSort };
+                    const eq = selEq.find(t => opMatches(op, t)) || 'Outros';
+                    timeSeries[mKey][eq] = (timeSeries[mKey][eq] || 0) + Number(val || 0);
+                };
+
+                // Add from producao_operacoes
+                producao_operacoes.forEach(d => {
+                    if (!d.mes || !d.operacao) return;
+                    const mNorm = d.mes;
+                    const year = (d.ano || "").toString();
+                    if (year && selAno.includes(year)) {
+                        addToTS(d.operacao, d.ho, mNorm, year);
+                    }
+                });
+
+                // Fallback for teams NOT in production but in unifiedMeta
+                unifiedMeta.forEach(d => {
+                    if (!selAno.includes(d.ano.toString())) return;
+                    const mShort = d.mes.substring(0, 3).toUpperCase();
+                    const mKey = `${mShort} ${d.ano}`;
+                    const eq = selEq.find(t => opMatches(d.operacao, t)) || 'Outros';
+                    
+                    // If we don't have this team/month in timeSeries yet, or the value is 0
+                    if (!timeSeries[mKey] || !timeSeries[mKey][eq]) {
+                        addToTS(d.operacao, d.arrecadado || d.ho || 0, d.mes, d.ano.toString());
+                    }
                 });
 
                 const labelsTime = Object.keys(timeSeries).sort((a,b) => timeSeries[a].sortVal - timeSeries[b].sortVal);
-                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4'];
-                
-                if(charts.fatOverview) charts.fatOverview.destroy();
+                const chartColors = ['#3b82f6','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4'];
+
+                if (charts.fatOverview) charts.fatOverview.destroy();
                 charts.fatOverview = new Chart(document.getElementById('chartFatOverview'), {
                     type: 'line',
-                    data: { 
-                        labels: labelsTime, 
+                    data: {
+                        labels: labelsTime,
                         datasets: Object.keys(groupedOps).map((team, i) => ({
-                            label: team.substring(0,20),
+                            label: team.substring(0, 22),
                             data: labelsTime.map(l => timeSeries[l][team] || 0),
-                            borderColor: colors[i % colors.length],
-                            backgroundColor: colors[i % colors.length] + '22',
+                            borderColor: chartColors[i % chartColors.length],
+                            backgroundColor: chartColors[i % chartColors.length] + '22',
                             fill: true, tension: 0.3
                         }))
                     },
                     options: { plugins: { datalabels: { display: false } } }
                 });
 
-                if(charts.distOp) charts.distOp.destroy();
+                // ─── Chart: Participação no Faturamento (Doughnut)
+                if (charts.distOp) charts.distOp.destroy();
                 charts.distOp = new Chart(document.getElementById('chartDistOp'), {
                     type: 'doughnut',
                     data: {
-                        labels: Object.keys(groupedOps).map(l => l.substring(0,20)),
-                        datasets: [{ data: Object.values(groupedOps).map(d => d.ho), backgroundColor: colors, borderWidth: 0 }]
+                        labels: Object.keys(groupedOps).map(l => l.substring(0, 22)),
+                        datasets: [{ data: Object.values(groupedOps).map(d => d.ho), backgroundColor: chartColors, borderWidth: 0 }]
                     },
                     options: { cutout: '65%', plugins: { legend: { position: 'right' }, datalabels: { display: false } } }
                 });
 
-                if(charts.promessas) charts.promessas.destroy();
+                // ─── Chart: Total de Promessas por Equipe (Bar)
+                if (charts.promessas) charts.promessas.destroy();
                 charts.promessas = new Chart(document.getElementById('chartPromessas'), {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(groupedOps).map(l => l.substring(0,15)),
+                        labels: Object.keys(groupedOps).map(l => l.substring(0, 25)),
                         datasets: [{ label: 'Promessas', data: Object.values(groupedOps).map(d => d.promessa), backgroundColor: '#10b981', borderRadius: 4 }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        plugins: { legend: { display: false } },
+                        scales: { x: { grid: { display: false } } }
                     }
                 });
             }
+
 
             if (activePanelId === 'faturamento') {
                 let filteredMeta = unifiedMeta.filter(d => {
@@ -387,16 +633,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     return true;
                 });
 
-                const mesesOrdemMap = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+                const mesesOrdemMap = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
                 const aggMetaTime = {};
                 filteredMeta.forEach(d => {
                     const k = `${d.mes} ${d.ano}`;
-                    if(!aggMetaTime[k]) aggMetaTime[k] = { arrecadado: 0, meta: 0, sortIdx: d.ano * 100 + mesesOrdemMap.indexOf(d.mes) };
+                    const mIdx = mesesOrdemMap.indexOf(d.mes);
+                    if(!aggMetaTime[k]) aggMetaTime[k] = { arrecadado: 0, meta: 0, sortIdx: d.ano * 100 + (mIdx >= 0 ? mIdx : 99) };
                     aggMetaTime[k].arrecadado += (d.arrecadado || 0);
                     aggMetaTime[k].meta += (d.meta || 0);
                 });
 
                 const labelsMeta = Object.keys(aggMetaTime).sort((a,b) => aggMetaTime[a].sortIdx - aggMetaTime[b].sortIdx);
+
+                const totalArrecadado = labelsMeta.reduce((s, l) => s + aggMetaTime[l].arrecadado, 0);
+                const totalMeta = labelsMeta.reduce((s, l) => s + aggMetaTime[l].meta, 0);
+                const pctAlcance = totalMeta > 0 ? (totalArrecadado / totalMeta) : 0;
+
+                const filtersBar = document.getElementById('filters-faturamento');
+                if (filtersBar && !document.getElementById('kpiFatMeta')) {
+                    const kpiDiv = document.createElement('div');
+                    kpiDiv.id = 'kpiFatMeta';
+                    kpiDiv.className = 'kpi-row';
+                    kpiDiv.style.marginTop = '20px';
+                    filtersBar.insertAdjacentElement('afterend', kpiDiv);
+                }
+                const kpiFatMeta = document.getElementById('kpiFatMeta');
+                if (kpiFatMeta) {
+                    kpiFatMeta.innerHTML = `
+                        <div class="kpi-card blue"><div class="kpi-icon"><i class="fas fa-coins"></i></div><div class="kpi-value">${formatBRL(totalArrecadado)}</div><div class="kpi-label">Arrecadado Total</div></div>
+                        <div class="kpi-card amber"><div class="kpi-icon"><i class="fas fa-bullseye"></i></div><div class="kpi-value">${formatBRL(totalMeta)}</div><div class="kpi-label">Meta Total</div></div>
+                        <div class="kpi-card green"><div class="kpi-icon"><i class="fas fa-percentage"></i></div><div class="kpi-value">${formatPct(pctAlcance)}</div><div class="kpi-label">% Atingimento</div></div>
+                    `;
+                }
 
                 if(charts.metaArr) charts.metaArr.destroy();
                 charts.metaArr = new Chart(document.getElementById('chartMetaVsArr'), {
@@ -404,11 +672,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     data: {
                         labels: labelsMeta,
                         datasets: [
-                            { label: 'Arrecadado', data: labelsMeta.map(l => aggMetaTime[l].arrecadado), backgroundColor: '#8b5cf6', borderRadius: 4 },
-                            { label: 'Meta', type: 'line', data: labelsMeta.map(l => aggMetaTime[l].meta), borderColor: '#f59e0b', borderDash: [5,5], borderWidth: 2, fill: false }
+                            { label: 'Arrecadado', data: labelsMeta.map(l => aggMetaTime[l].arrecadado), backgroundColor: '#8b5cf6', borderRadius: 4, yAxisID: 'y' },
+                            { label: 'Meta', type: 'line', data: labelsMeta.map(l => aggMetaTime[l].meta), borderColor: '#f59e0b', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y' },
+                            { 
+                                label: '% Atingimento', type: 'line', 
+                                data: labelsMeta.map(l => aggMetaTime[l].meta > 0 ? (aggMetaTime[l].arrecadado / aggMetaTime[l].meta) * 100 : 0), 
+                                borderColor: '#10b981', borderWidth: 2, pointRadius: 4, fill: false, yAxisID: 'y1' 
+                            }
                         ]
                     },
-                    options: { plugins: { datalabels: { align: 'top', anchor: 'end', display: (ctx) => ctx.datasetIndex === 0 } } }
+                    options: { 
+                        plugins: { 
+                            datalabels: { 
+                                align: 'top', anchor: 'end', 
+                                display: (ctx) => ctx.datasetIndex !== 1, 
+                                formatter: (v, ctx) => ctx.datasetIndex === 2 ? v.toFixed(1) + '%' : formatBRL(v) 
+                            } 
+                        },
+                        scales: {
+                            y: { position: 'left', ticks: { callback: v => formatBRL(v) } },
+                            y1: { position: 'right', min: 0, max: 150, grid: { display: false }, ticks: { callback: v => v + '%' } }
+                        }
+                    }
                 });
 
                 if(charts.evolMeta) charts.evolMeta.destroy();
@@ -427,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (activePanelId === 'comparativo') {
-                const mesesOrdemMap = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+                const mesesOrdemMap = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
                 const compDataByYear = { '2024': {}, '2025': {}, '2026': {} };
                 const compLabelsSet = new Set();
                 unifiedMeta.forEach(d => {
@@ -467,23 +752,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             { label: '2026', data: compLabelsSorted.map(l => (compDataByYear['2026'][l] && compDataByYear['2026'][l].meta > 0) ? (compDataByYear['2026'][l].arrecadado / compDataByYear['2026'][l].meta) * 100 : 0), borderColor: '#10b981', tension: 0.3 }
                         ]
                     },
-                    options: { plugins: { datalabels: { formatter: v => v > 0 ? v.toFixed(0) + '%' : '' } } }
+                    options: { 
+                        layout: { padding: { top: 30, bottom: 10 } },
+                        plugins: { 
+                            legend: { position: 'bottom', labels: { padding: 20 } },
+                            datalabels: { 
+                                align: 'top', 
+                                anchor: 'end', 
+                                offset: 2,
+                                formatter: v => v > 0 ? v.toFixed(0) + '%' : '',
+                                font: { size: 9, weight: 'bold' }
+                            } 
+                        },
+                        scales: {
+                            y: { beginAtZero: true, max: 130, ticks: { callback: v => v + '%' } }
+                        }
+                    }
                 });
             }
 
             if (activePanelId === 'operadores' || activePanelId === 'quartil') {
                 let filteredOperators = operadores.filter(o => {
-                    if (!selEq.some(eq => opMatches(o.operacao, eq))) return false;
+                    if (selEq.length > 0 && !selEq.some(eq => opMatches(o.operacao, eq) || opMatches(o.nova_lotacao, eq))) return false;
                     
-                    if (o.mes) {
-                        const dt = new Date(o.mes);
-                        if (!isNaN(dt)) {
-                            const mName = normalizeMonth(o.mes);
-                            const year = dt.getUTCFullYear().toString();
-                            if (!selMes.includes(mName)) return false;
-                            if (!selAno.includes(year)) return false;
-                        }
-                    } else return false;
+                    const mNorm = o.mes;
+                    const year = (o.ano || "").toString();
+                    if (selAno.length > 0 && !selAno.includes(year)) return false;
+                    if (selMes.length > 0 && !selMes.includes(mNorm)) return false;
 
                     const rawQHO = o.quartil_ho ? o.quartil_ho.toString() : '';
                     let qNumHO = rawQHO.includes('1') ? '1' : rawQHO.includes('2') ? '2' : rawQHO.includes('3') ? '3' : rawQHO.includes('4') ? '4' : '0';
@@ -505,61 +800,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activePanelId === 'operadores') {
                     const aggOps = {};
                     filteredOperators.forEach(op => {
-                        if(!aggOps[op.agente]) {
-                            aggOps[op.agente] = {
-                                agente: op.agente, operacao: op.operacao,
-                                ho: 0, metaHO: 0, cpc: 0, promessa: 0,
-                                qSum: 0, qCount: 0, tLog: 0, pausa: 0,
-                                quartis: []
+                        // Create a unique key for EACH record (Agent + Month + Year) to prevent summation
+                        const recordKey = `${op.agente}_${op.mes}_${op.ano}`;
+                        if(!aggOps[recordKey]) {
+                            aggOps[recordKey] = {
+                                agente: op.agente, 
+                                operacao: op.operacao,
+                                matricula: op.matricula,
+                                mes: op.mes,
+                                ano: op.ano,
+                                ho: op.ho || 0,
+                                alcance_ho: op.alcance_ho || 0,
+                                dispersao: op.dispersao,
+                                cpc: op.cpc || 0,
+                                promessa: op.promessa || 0,
+                                qualidade: op.qualidade,
+                                abs: op.abs,
+                                pausa_100: op.pausa_100,
+                                tempo_logado: op.tempo_logado,
+                                quartil_ho: op.quartil_ho
                             };
                         }
-                        aggOps[op.agente].ho += (op.ho || 0);
-                        const inferredMetaHO = (op.ho && op.alcance_ho && op.alcance_ho > 0) ? (op.ho / op.alcance_ho) : 0;
-                        aggOps[op.agente].metaHO += inferredMetaHO;
-                        
-                        aggOps[op.agente].cpc += (op.cpc || 0);
-                        aggOps[op.agente].promessa += (op.promessa || 0);
-                        if(op.qualidade) { aggOps[op.agente].qSum += op.qualidade; aggOps[op.agente].qCount++; }
-                        aggOps[op.agente].tLog += timeToSec(op.tempo_logado);
-                        aggOps[op.agente].pausa += timeToSec(op.pausa);
-                        if(op.quartil_ho) aggOps[op.agente].quartis.push(op.quartil_ho);
+                    });
+
+                    // Update aggOps to use the correct operation name if matched via nova_lotacao
+                    Object.values(aggOps).forEach(op => {
+                        if (selEq.length > 0 && !selEq.some(eq => opMatches(op.operacao, eq))) {
+                            const match = selEq.find(eq => {
+                                return filteredOperators.some(o => o.agente === op.agente && opMatches(o.nova_lotacao, eq));
+                            });
+                            if (match) op.operacao = match;
+                        }
                     });
 
                     const opGrid = document.getElementById('operatorsGrid');
                     if (opGrid) {
                         opGrid.innerHTML = '';
-                        Object.values(aggOps).sort((a,b) => b.ho - a.ho).slice(0, 100).forEach(op => {
-                            let mostFreqQ = '0';
-                            if(op.quartis.length > 0) {
-                                const map = {};
-                                op.quartis.forEach(q => map[q] = (map[q] || 0) + 1);
-                                mostFreqQ = Object.keys(map).reduce((a, b) => map[a] > map[b] ? a : b);
-                            }
-                            
-                            let qNum = mostFreqQ.includes('1') ? '1' : mostFreqQ.includes('2') ? '2' : mostFreqQ.includes('3') ? '3' : mostFreqQ.includes('4') ? '4' : '0';
+                        Object.values(aggOps).sort((a,b) => b.ho - a.ho).slice(0, 300).forEach(op => {
+                            const qNum = op.quartil_ho ? (op.quartil_ho.includes('1') ? '1' : op.quartil_ho.includes('2') ? '2' : op.quartil_ho.includes('3') ? '3' : op.quartil_ho.includes('4') ? '4' : '0') : '0';
                             const badgeCls = `badge-${qNum}q`;
                             const displayQ = qNum !== '0' ? `${qNum}º Q` : '-';
                             
-                            const alcHO = op.metaHO > 0 ? op.ho / op.metaHO : 0;
-                            const avgQual = op.qCount > 0 ? op.qSum / op.qCount : 0;
-
-                            opGrid.innerHTML += `
-                                <div class="op-card">
-                                    <div class="op-quartil-badge ${badgeCls}">${displayQ}</div>
-                                    <div class="op-header">
-                                        <div class="op-avatar" style="background: var(--bg-secondary); border: 1px solid var(--border);">${op.agente ? op.agente.charAt(0) : 'U'}</div>
-                                        <div><div class="op-name">${op.agente}</div><div class="op-team">${op.operacao || 'Sem Equipe'}</div></div>
-                                    </div>
-                                    <div class="op-metrics">
-                                        <div class="op-metric"><div class="metric-value">${formatPct(alcHO)}</div><div class="metric-label">Alcance H.O</div></div>
-                                        <div class="op-metric"><div class="metric-value">${formatPct(avgQual)}</div><div class="metric-label">Qualidade</div></div>
-                                        <div class="op-metric"><div class="metric-value">${secToTime(op.tLog)}</div><div class="metric-label">T. Logado</div></div>
-                                        <div class="op-metric"><div class="metric-value">${formatNum(op.cpc)}</div><div class="metric-label">CPC</div></div>
-                                        <div class="op-metric"><div class="metric-value">${formatNum(op.promessa)}</div><div class="metric-label">Promessas</div></div>
-                                        <div class="op-metric"><div class="metric-value">${secToTime(op.pausa)}</div><div class="metric-label">Pausa</div></div>
-                                    </div>
-                                </div>
-                            `;
+                             opGrid.innerHTML += `
+                                 <div class="op-card">
+                                     <div class="op-quartil-badge ${badgeCls}">${displayQ}</div>
+                                     <div class="op-header">
+                                         <div class="op-avatar" style="background: var(--bg-secondary); border: 1px solid var(--border);">${op.agente ? op.agente.charAt(0) : 'U'}</div>
+                                         <div>
+                                            <div class="op-name">${op.agente}</div>
+                                            <div class="op-team" style="font-size:0.7rem;opacity:0.8;">
+                                                <span style="color:var(--accent-blue)">${op.mes.toUpperCase()} ${op.ano}</span> | MAT: ${op.matricula || '-'}
+                                            </div>
+                                         </div>
+                                     </div>
+                                     <div class="op-metrics">
+                                         <div class="op-metric"><div class="metric-value">${formatBRL(op.ho)}</div><div class="metric-label">H.O</div></div>
+                                         <div class="op-metric"><div class="metric-value">${formatPct(op.alcance_ho)}</div><div class="metric-label">Alcance H.O</div></div>
+                                         <div class="op-metric"><div class="metric-value">${formatPct(op.qualidade)}</div><div class="metric-label">Qualidade</div></div>
+                                         <div class="op-metric"><div class="metric-value" style="color:var(--accent-amber); font-weight:bold;">${formatNum(op.abs)}</div><div class="metric-label">ABS</div></div>
+                                         <div class="op-metric"><div class="metric-value">${formatPct(op.pausa_100)}</div><div class="metric-label">% Pausa</div></div>
+                                         <div class="op-metric"><div class="metric-value">${op.tempo_logado ? op.tempo_logado.substring(0, 5) : '-'}</div><div class="metric-label">T. Logado</div></div>
+                                         <div class="op-metric"><div class="metric-value">${formatNum(op.promessa)}</div><div class="metric-label">Promessas</div></div>
+                                         <div class="op-metric"><div class="metric-value">${formatPct(op.dispersao)}</div><div class="metric-label">Dispersão</div></div>
+                                     </div>
+                                 </div>
+                             `;
                         });
                     }
                 }
@@ -648,7 +953,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        setTimeout(renderCharts, 200);
+        setTimeout(() => {
+            ['overview', 'faturamento', 'comparativo', 'operadores', 'quartil'].forEach(p => updateTeamFilter(p));
+            renderCharts();
+        }, 300);
     };
 
     // --- AUTH LOGIC ---
