@@ -297,9 +297,51 @@ for row in ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True):
 all_data['custos'] = custos
 
 # =============================================================
+# ALARES
+# =============================================================
+try:
+    ws_alares = wb['ALARES']
+    alares_list = []
+    
+    # Get headers to map column indices
+    headers = [str(cell.value).upper().strip() if cell.value else "" for cell in ws_alares[1]]
+    idx_ano = headers.index('ANO') if 'ANO' in headers else 0
+    idx_mes = headers.index('MÊS') if 'MÊS' in headers else (headers.index('MES') if 'MES' in headers else 1)
+    idx_var = headers.index('VARIAVEL') if 'VARIAVEL' in headers else 2
+    idx_dig = headers.index('DIGITAL') if 'DIGITAL' in headers else 3
+    idx_paf = headers.index('PA FIXA') if 'PA FIXA' in headers else 4
+    idx_vaf = headers.index('VARIAVEL + FIXA') if 'VARIAVEL + FIXA' in headers else -1
+    idx_tot = headers.index('VALOR FINAL') if 'VALOR FINAL' in headers else 5
+
+    for row in ws_alares.iter_rows(min_row=2, max_row=ws_alares.max_row, values_only=True):
+        if not row or row[idx_ano] is None or row[idx_mes] is None:
+            continue
+        
+        val_var = row[idx_var] if isinstance(row[idx_var], (int, float)) else 0
+        val_dig = row[idx_dig] if isinstance(row[idx_dig], (int, float)) else 0
+        val_paf = row[idx_paf] if isinstance(row[idx_paf], (int, float)) else 0
+        val_vaf = row[idx_vaf] if idx_vaf >= 0 and isinstance(row[idx_vaf], (int, float)) else (val_var + val_paf)
+        val_tot = row[idx_tot] if isinstance(row[idx_tot], (int, float)) else (val_vaf + val_dig)
+        
+        alares_list.append({
+            'ano':      row[idx_ano],
+            'mes':      normalize_mes(row[idx_mes]),
+            'variavel': val_var,
+            'digital':  val_dig,
+            'pa_fixa':  val_paf,
+            'var_fixa': val_vaf,
+            'total':    val_tot
+        })
+    all_data['alares'] = alares_list
+    print(f"  ALARES:              {len(alares_list)}")
+except Exception as e:
+    print(f"  Warning: Could not process ALARES sheet: {e}")
+    all_data['alares'] = []
+
+# =============================================================
 # Write data.js
 # =============================================================
-out_path = r'c:\Users\sup.luciana\Desktop\AntiGravity\PAINEL GERAL\data.js'
+out_path = r'c:\Users\sup.luciana\Desktop\AntiGravity\PAINEL GERAL\data_v2.js'
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write('const DASHBOARD_DATA = ')
     json.dump(all_data, f, ensure_ascii=False, default=str, indent=None)
@@ -312,3 +354,4 @@ print(f"  Fechamentos 2026:    {len(fechamentos2026)}")
 print(f"  Meta 2025:           {len(meta2025)}")
 print(f"  Meta 2024:           {len(meta2024)}")
 print(f"  Meta CNU:            {len(meta_cnu)}")
+print(f"  ALARES:              {len(all_data.get('alares', []))}")

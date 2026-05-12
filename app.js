@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/[^A-Z0-9]/g, ''); // Keep only alphanumeric
         };
 
-        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026, abs_geral_timeline } = DASHBOARD_DATA;
+        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026, abs_geral_timeline, alares } = DASHBOARD_DATA;
+        const alaresData = alares || [];
         const absData = DASHBOARD_DATA.abs_data || {};
         const absGeralTimeline = abs_geral_timeline || [];
 
@@ -24,49 +25,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parts = m.split('-');
                 if (parts.length >= 2) monthIdx = parseInt(parts[1]) - 1;
             }
-            const months = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+            const months = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
             if (monthIdx >= 0 && monthIdx < 12) return months[monthIdx];
-            
+
             const date = new Date(m);
-            if (isNaN(date)) return m.toString().toLowerCase().replace('ç','c').replace('ã','a').replace('á','a').replace('é','e').replace('ê','e').replace('í','i').replace('ó','o').replace('ô','o').replace('ú','u');
+            if (isNaN(date)) return m.toString().toLowerCase().replace('ç', 'c').replace('ã', 'a').replace('á', 'a').replace('é', 'e').replace('ê', 'e').replace('í', 'i').replace('ó', 'o').replace('ô', 'o').replace('ú', 'u');
             return months[date.getUTCMonth()];
         };
 
         // ── Normalize month to accent-free lowercase (used consistently everywhere)
         const MONTHS_NORM = {
-            'JANEIRO':'janeiro','FEVEREIRO':'fevereiro','MARCO':'marco','MARCO':'marco',
-            'ABRIL':'abril','MAIO':'maio','JUNHO':'junho','JULHO':'julho',
-            'AGOSTO':'agosto','SETEMBRO':'setembro','OUTUBRO':'outubro',
-            'NOVEMBRO':'novembro','DEZEMBRO':'dezembro',
-            'JAN':'janeiro','FEV':'fevereiro','MAR':'marco','ABR':'abril',
-            'MAI':'maio','JUN':'junho','JUL':'julho','AGO':'agosto',
-            'SET':'setembro','OUT':'outubro','NOV':'novembro','DEZ':'dezembro'
+            'JANEIRO': 'janeiro', 'FEVEREIRO': 'fevereiro', 'MARCO': 'marco', 'MARCO': 'marco',
+            'ABRIL': 'abril', 'MAIO': 'maio', 'JUNHO': 'junho', 'JULHO': 'julho',
+            'AGOSTO': 'agosto', 'SETEMBRO': 'setembro', 'OUTUBRO': 'outubro',
+            'NOVEMBRO': 'novembro', 'DEZEMBRO': 'dezembro',
+            'JAN': 'janeiro', 'FEV': 'fevereiro', 'MAR': 'marco', 'ABR': 'abril',
+            'MAI': 'maio', 'JUN': 'junho', 'JUL': 'julho', 'AGO': 'agosto',
+            'SET': 'setembro', 'OUT': 'outubro', 'NOV': 'novembro', 'DEZ': 'dezembro'
         };
         const stripAccents = (s) => s ? s.toString()
-            .replace(/[çÇ]/g,'c').replace(/[ãÃáÁâÂàÀ]/g,'a')
-            .replace(/[éÉêÊ]/g,'e').replace(/[íÍ]/g,'i')
-            .replace(/[óÓôÔ]/g,'o').replace(/[úÚ]/g,'u') : '';
+            .replace(/[çÇ]/g, 'c').replace(/[ãÃáÁâÂàÀ]/g, 'a')
+            .replace(/[éÉêÊ]/g, 'e').replace(/[íÍ]/g, 'i')
+            .replace(/[óÓôÔ]/g, 'o').replace(/[úÚ]/g, 'u') : '';
         const monthNameToNorm = (s) => {
             if (!s) return '';
             const up = stripAccents(s.toString().toUpperCase().trim());
             if (MONTHS_NORM[up]) return MONTHS_NORM[up];
-            for (const [k,v] of Object.entries(MONTHS_NORM)) {
+            for (const [k, v] of Object.entries(MONTHS_NORM)) {
                 if (up.startsWith(stripAccents(k))) return v;
             }
             return stripAccents(s.toString().toLowerCase());
         };
 
         const timeToSec = (t) => {
-            if(!t || typeof t !== 'string') return 0;
+            if (!t || typeof t !== 'string') return 0;
             const p = t.split(':');
-            if(p.length === 3) return parseInt(p[0])*3600 + parseInt(p[1])*60 + parseInt(p[2]);
+            if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseInt(p[2]);
             return 0;
         };
         const secToTime = (s) => {
-            if(!s) return '-';
-            const h = Math.floor(s/3600);
-            const m = Math.floor((s%3600)/60);
-            return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+            if (!s) return '-';
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
         const unifiedMeta = [];
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const getTeams = (arr) => {
             const s = new Set();
-            arr.forEach(d => { if(d.operacao) s.add(d.operacao); });
+            arr.forEach(d => { if (d.operacao) s.add(d.operacao); });
             return [...s].sort();
         };
 
@@ -106,17 +107,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const eqOper = getTeams(operadores);
 
         // Month display names (accented for UI) mapped to normalized accent-free values
-        const mesesOrdemOriginal = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-        const mesesNormValues   = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+        const mesesOrdemOriginal = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+        const mesesNormValues = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
         // HTML generator for filters
-        const buildFiltersHTML = (panelId, teams, showQuartil = false) => {
+        const buildFiltersHTML = (panelId, teams, showQuartil = false, hideTeam = false) => {
             let teamsHTML = teams.map(t => `<label><input type="checkbox" value="${t}" class="opt-cb" checked> ${t}</label>`).join('');
             let mesesHTML = mesesOrdemOriginal.map((m, i) => `<label><input type="checkbox" value="${mesesNormValues[i]}" class="opt-cb" checked> ${m}</label>`).join('');
             let anosHTML = [2024, 2025, 2026].map(a => `<label><input type="checkbox" value="${a}" class="opt-cb" ${a === 2026 ? 'checked' : ''}> ${a}</label>`).join('');
-            
+
             let html = `
-                <div class="filter-group">
+                <div class="filter-group" style="${hideTeam ? 'display:none' : ''}">
                     <label>Equipe</label>
                     <div class="custom-select dd-equipe" data-text="Equipes">
                         <div class="select-box"><span>Todas</span> <i class="fas fa-chevron-down"></i></div>
@@ -190,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buildFiltersHTML('comparativo', eqMeta);
         buildFiltersHTML('operadores', eqOper, true);
         buildFiltersHTML('quartil', eqOper, true);
+        buildFiltersHTML('alares', [], false, true);
 
         const initSelects = () => {
             document.querySelectorAll('.custom-select').forEach(el => {
@@ -209,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (selectedNames.length <= 2) textSpan.textContent = selectedNames.join(', ');
                         else textSpan.textContent = `${checkedCount} itens`;
                     }
-                    
+
                     // Only render if this filter belongs to the currently active panel
                     const parentPanel = el.closest('.panel');
                     if (parentPanel && parentPanel.classList.contains('active')) {
@@ -226,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     cb.addEventListener('change', () => {
                         selectAll.checked = cbs.every(c => c.checked);
                         updateText();
-                        
+
                         // Handle dynamic filtering for teams if month or year changed
                         if (el.classList.contains('dd-mes') || el.classList.contains('dd-ano')) {
                             const panel = el.closest('.panel');
@@ -239,21 +241,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 box.addEventListener('click', (e) => {
                     document.querySelectorAll('.custom-select').forEach(other => {
-                        if(other !== el) other.classList.remove('active');
+                        if (other !== el) other.classList.remove('active');
                     });
                     el.classList.toggle('active');
                     e.stopPropagation();
                 });
 
                 const optionsContainer = el.querySelector('.options-container');
-                if(optionsContainer) optionsContainer.addEventListener('click', e => e.stopPropagation());
+                if (optionsContainer) optionsContainer.addEventListener('click', e => e.stopPropagation());
             });
         };
 
         const updateTeamFilter = (panelId) => {
             const panel = document.getElementById(`panel-${panelId}`);
             if (!panel) return;
-            
+
             const selMes = getSelected(panelId, 'dd-mes');
             const selAno = getSelected(panelId, 'dd-ano');
             const teamContainer = panel.querySelector('.dd-equipe .options-list');
@@ -261,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Find available teams for the selected period
             const availableTeams = new Set();
-            
+
             if (panelId === 'overview') {
                 // Check Production data
                 producao_operacoes.forEach(d => {
@@ -298,12 +300,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const teams = Array.from(availableTeams).sort();
             const currentSelected = getSelected(panelId, 'dd-equipe');
-            
+
             // Check if any of the previously selected teams are still available
             const stillAvailable = teams.filter(t => currentSelected.includes(t));
             const shouldCheckAll = currentSelected.length === 0 || stillAvailable.length === 0;
 
-            teamContainer.innerHTML = teams.map(t => 
+            teamContainer.innerHTML = teams.map(t =>
                 `<label><input type="checkbox" value="${t}" class="opt-cb" ${shouldCheckAll || currentSelected.includes(t) ? 'checked' : ''}> ${t}</label>`
             ).join('');
 
@@ -326,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             selectAll.checked = cbs.every(c => c.checked);
-            
+
             cbs.forEach(cb => {
                 cb.addEventListener('change', () => {
                     selectAll.checked = cbs.every(c => c.checked);
@@ -364,11 +366,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 navItems.forEach(i => i.classList.remove('active'));
                 panels.forEach(p => p.classList.remove('active'));
                 item.classList.add('active');
-                
+
                 const pId = item.dataset.panel;
                 document.getElementById(`panel-${pId}`).classList.add('active');
                 title.textContent = item.querySelector('span').textContent;
-                
+
                 if (window.innerWidth <= 1024) sidebar.classList.remove('open');
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
@@ -377,11 +379,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        if(menuToggle) menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+        if (menuToggle) menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
 
         // Search Input binding
         const searchInput = document.getElementById('searchOperador');
-        if(searchInput) searchInput.addEventListener('input', renderCharts);
+        if (searchInput) searchInput.addEventListener('input', renderCharts);
 
         // Chart.js defaults
         Chart.register(ChartDataLabels);
@@ -395,9 +397,9 @@ document.addEventListener('DOMContentLoaded', () => {
             color: '#fff',
             font: { weight: 'bold', size: 10 },
             formatter: (val) => {
-                if(val === 0 || !val) return '';
-                if(val < 10 && val > 0 && val.toString().includes('.')) return val.toFixed(1) + '%';
-                if(val > 1000) return (val/1000).toFixed(1) + 'k';
+                if (val === 0 || !val) return '';
+                if (val < 10 && val > 0 && val.toString().includes('.')) return val.toFixed(1) + '%';
+                if (val > 1000) return (val / 1000).toFixed(1) + 'k';
                 return val;
             }
         };
@@ -435,10 +437,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const filteredOps = producao_operacoes.filter(d => {
                     if (!selEq.some(eq => opMatches(d.operacao, eq))) return false;
                     if (!d.mes) return false;
-                    
+
                     const mNorm = d.mes;
                     const year = (d.ano || "").toString();
-                    
+
                     if (selAno.length > 0 && !selAno.includes(year)) return false;
                     if (selMes.length > 0 && !selMes.includes(mNorm)) return false;
                     return true;
@@ -461,10 +463,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const year = d.ano.toString();
                     if (!selMes.includes(mName)) return;
                     if (!selAno.includes(year)) return;
-                    
+
                     const matchTeam = selEq.find(t => opMatches(d.operacao, t));
                     if (!matchTeam) return;
-                    
+
                     groupedOps[matchTeam].ho += Number(d.arrecadado || d.ho || 0);
                 });
 
@@ -472,13 +474,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 filteredOps.forEach(d => {
                     const matchTeam = selEq.find(t => opMatches(d.operacao, t));
                     if (!matchTeam) return;
-                    
+
                     const g = groupedOps[matchTeam];
-                    
+
                     // CPC, Promessa are totals -> Sum them
                     g.promessa += Number(d.promessa || 0);
-                    g.cpc      += Number(d.cpc || 0);
-                    
+                    g.cpc += Number(d.cpc || 0);
+
                     // Qualidade, Pausa are percentages -> Average them
                     if (d.qualidade !== null && d.qualidade !== undefined && !isNaN(d.qualidade)) {
                         g.qSum += Number(d.qualidade); g.qCount++;
@@ -489,14 +491,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // ─── Build list of keys (unused for ABS now, but keeping month order logic if needed)
-                const totalHO   = Object.values(groupedOps).reduce((s, a) => s + a.ho, 0);
-                const totalCPC  = Object.values(groupedOps).reduce((s, a) => s + a.cpc, 0);
+                const totalHO = Object.values(groupedOps).reduce((s, a) => s + a.ho, 0);
+                const totalCPC = Object.values(groupedOps).reduce((s, a) => s + a.cpc, 0);
                 const totalProm = Object.values(groupedOps).reduce((s, a) => s + a.promessa, 0);
 
-                const withQ  = Object.values(groupedOps).filter(m => m.qCount > 0);
-                const withP  = Object.values(groupedOps).filter(m => m.pCount > 0);
-                const avgQual  = withQ.length > 0 ? withQ.reduce((s,m) => s + m.qSum/m.qCount, 0) / withQ.length : 0;
-                const avgPausa = withP.length > 0 ? withP.reduce((s,m) => s + m.pSum/m.pCount, 0) / withP.length : 0;
+                const withQ = Object.values(groupedOps).filter(m => m.qCount > 0);
+                const withP = Object.values(groupedOps).filter(m => m.pCount > 0);
+                const avgQual = withQ.length > 0 ? withQ.reduce((s, m) => s + m.qSum / m.qCount, 0) / withQ.length : 0;
+                const avgPausa = withP.length > 0 ? withP.reduce((s, m) => s + m.pSum / m.pCount, 0) / withP.length : 0;
 
                 // ─── Phase 3: ABS Geral from the new timeline source
                 let absGeralSum = 0, absGeralCount = 0;
@@ -522,14 +524,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const teamCardsContainer = document.getElementById('teamCards');
                 teamCardsContainer.innerHTML = '';
                 const colors = ['blue', 'green', 'amber', 'rose', 'purple', 'cyan'];
-                Object.keys(groupedOps).sort((a,b) => groupedOps[b].ho - groupedOps[a].ho).forEach((team, i) => {
+                Object.keys(groupedOps).sort((a, b) => groupedOps[b].ho - groupedOps[a].ho).forEach((team, i) => {
                     const c = colors[i % colors.length];
                     const g = groupedOps[team];
                     const qual = g.qCount > 0 ? g.qSum / g.qCount : 0;
-                    const pau  = g.pCount > 0 ? g.pSum / g.pCount : 0;
+                    const pau = g.pCount > 0 ? g.pSum / g.pCount : 0;
                     teamCardsContainer.innerHTML += `
                         <div class="kpi-card ${c}">
-                            <div class="kpi-label" style="font-size:0.85rem;color:#fff;margin-bottom:10px;font-weight:700;">${team.substring(0,35)}</div>
+                            <div class="kpi-label" style="font-size:0.85rem;color:#fff;margin-bottom:10px;font-weight:700;">${team.substring(0, 35)}</div>
                             <div class="kpi-value" style="font-size:1.3rem;">${formatBRL(g.ho)}</div>
                             <div style="font-size:0.75rem;margin-top:8px;color:var(--text-secondary);">
                                 <i class="fas fa-check-circle"></i> CPC: ${formatNum(g.cpc)} &nbsp;|&nbsp; <i class="fas fa-handshake"></i> PROM: ${formatNum(g.promessa)}
@@ -545,11 +547,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ─── Chart: Linha do Tempo (H.O por mês — Source: Combined)
                 const timeSeries = {};
                 const addToTS = (op, val, mNorm, year) => {
-                    const mIdx = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'].indexOf(mNorm);
+                    const mIdx = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'].indexOf(mNorm);
                     const dtSort = parseInt(year) * 100 + (mIdx >= 0 ? mIdx : 0);
                     const mShort = mNorm.substring(0, 3).toUpperCase();
                     const mKey = `${mShort} ${year}`;
-                    
+
                     if (!timeSeries[mKey]) timeSeries[mKey] = { sortVal: dtSort };
                     const eq = selEq.find(t => opMatches(op, t)) || 'Outros';
                     timeSeries[mKey][eq] = (timeSeries[mKey][eq] || 0) + Number(val || 0);
@@ -571,15 +573,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const mShort = d.mes.substring(0, 3).toUpperCase();
                     const mKey = `${mShort} ${d.ano}`;
                     const eq = selEq.find(t => opMatches(d.operacao, t)) || 'Outros';
-                    
+
                     // If we don't have this team/month in timeSeries yet, or the value is 0
                     if (!timeSeries[mKey] || !timeSeries[mKey][eq]) {
                         addToTS(d.operacao, d.arrecadado || d.ho || 0, d.mes, d.ano.toString());
                     }
                 });
 
-                const labelsTime = Object.keys(timeSeries).sort((a,b) => timeSeries[a].sortVal - timeSeries[b].sortVal);
-                const chartColors = ['#3b82f6','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4'];
+                const labelsTime = Object.keys(timeSeries).sort((a, b) => timeSeries[a].sortVal - timeSeries[b].sortVal);
+                const chartColors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4'];
 
                 if (charts.fatOverview) charts.fatOverview.destroy();
                 charts.fatOverview = new Chart(document.getElementById('chartFatOverview'), {
@@ -633,17 +635,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     return true;
                 });
 
-                const mesesOrdemMap = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+                const mesesOrdemMap = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
                 const aggMetaTime = {};
                 filteredMeta.forEach(d => {
                     const k = `${d.mes} ${d.ano}`;
                     const mIdx = mesesOrdemMap.indexOf(d.mes);
-                    if(!aggMetaTime[k]) aggMetaTime[k] = { arrecadado: 0, meta: 0, sortIdx: d.ano * 100 + (mIdx >= 0 ? mIdx : 99) };
+                    if (!aggMetaTime[k]) aggMetaTime[k] = { arrecadado: 0, meta: 0, sortIdx: d.ano * 100 + (mIdx >= 0 ? mIdx : 99) };
                     aggMetaTime[k].arrecadado += (d.arrecadado || 0);
                     aggMetaTime[k].meta += (d.meta || 0);
                 });
 
-                const labelsMeta = Object.keys(aggMetaTime).sort((a,b) => aggMetaTime[a].sortIdx - aggMetaTime[b].sortIdx);
+                const labelsMeta = Object.keys(aggMetaTime).sort((a, b) => aggMetaTime[a].sortIdx - aggMetaTime[b].sortIdx);
 
                 const totalArrecadado = labelsMeta.reduce((s, l) => s + aggMetaTime[l].arrecadado, 0);
                 const totalMeta = labelsMeta.reduce((s, l) => s + aggMetaTime[l].meta, 0);
@@ -666,28 +668,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
 
-                if(charts.metaArr) charts.metaArr.destroy();
+                if (charts.metaArr) charts.metaArr.destroy();
                 charts.metaArr = new Chart(document.getElementById('chartMetaVsArr'), {
                     type: 'bar',
                     data: {
                         labels: labelsMeta,
                         datasets: [
                             { label: 'Arrecadado', data: labelsMeta.map(l => aggMetaTime[l].arrecadado), backgroundColor: '#8b5cf6', borderRadius: 4, yAxisID: 'y' },
-                            { label: 'Meta', type: 'line', data: labelsMeta.map(l => aggMetaTime[l].meta), borderColor: '#f59e0b', borderDash: [5,5], borderWidth: 2, fill: false, yAxisID: 'y' },
-                            { 
-                                label: '% Atingimento', type: 'line', 
-                                data: labelsMeta.map(l => aggMetaTime[l].meta > 0 ? (aggMetaTime[l].arrecadado / aggMetaTime[l].meta) * 100 : 0), 
-                                borderColor: '#10b981', borderWidth: 2, pointRadius: 4, fill: false, yAxisID: 'y1' 
+                            { label: 'Meta', type: 'line', data: labelsMeta.map(l => aggMetaTime[l].meta), borderColor: '#f59e0b', borderDash: [5, 5], borderWidth: 2, fill: false, yAxisID: 'y' },
+                            {
+                                label: '% Atingimento', type: 'line',
+                                data: labelsMeta.map(l => aggMetaTime[l].meta > 0 ? (aggMetaTime[l].arrecadado / aggMetaTime[l].meta) * 100 : 0),
+                                borderColor: '#10b981', borderWidth: 2, pointRadius: 4, fill: false, yAxisID: 'y1'
                             }
                         ]
                     },
-                    options: { 
-                        plugins: { 
-                            datalabels: { 
-                                align: 'top', anchor: 'end', 
-                                display: (ctx) => ctx.datasetIndex !== 1, 
-                                formatter: (v, ctx) => ctx.datasetIndex === 2 ? v.toFixed(1) + '%' : formatBRL(v) 
-                            } 
+                    options: {
+                        plugins: {
+                            datalabels: {
+                                align: 'top', anchor: 'end',
+                                display: (ctx) => ctx.datasetIndex !== 1,
+                                formatter: (v, ctx) => ctx.datasetIndex === 2 ? v.toFixed(1) + '%' : formatBRL(v)
+                            }
                         },
                         scales: {
                             y: { position: 'left', ticks: { callback: v => formatBRL(v) } },
@@ -696,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                if(charts.evolMeta) charts.evolMeta.destroy();
+                if (charts.evolMeta) charts.evolMeta.destroy();
                 charts.evolMeta = new Chart(document.getElementById('chartEvolMeta'), {
                     type: 'line',
                     data: {
@@ -712,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (activePanelId === 'comparativo') {
-                const mesesOrdemMap = ['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+                const mesesOrdemMap = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
                 const compDataByYear = { '2024': {}, '2025': {}, '2026': {} };
                 const compLabelsSet = new Set();
                 unifiedMeta.forEach(d => {
@@ -720,15 +722,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!selMes.includes(d.mes)) return;
                     // Ignoring year filter specifically for this view so we can compare across years
                     if (compDataByYear[d.ano]) {
-                        if(!compDataByYear[d.ano][d.mes]) compDataByYear[d.ano][d.mes] = { arrecadado: 0, meta: 0 };
+                        if (!compDataByYear[d.ano][d.mes]) compDataByYear[d.ano][d.mes] = { arrecadado: 0, meta: 0 };
                         compDataByYear[d.ano][d.mes].arrecadado += d.arrecadado || 0;
                         compDataByYear[d.ano][d.mes].meta += d.meta || 0;
                         compLabelsSet.add(d.mes);
                     }
                 });
-                const compLabelsSorted = [...compLabelsSet].sort((a,b) => mesesOrdemMap.indexOf(a) - mesesOrdemMap.indexOf(b));
+                const compLabelsSorted = [...compLabelsSet].sort((a, b) => mesesOrdemMap.indexOf(a) - mesesOrdemMap.indexOf(b));
 
-                if(charts.compAnos) charts.compAnos.destroy();
+                if (charts.compAnos) charts.compAnos.destroy();
                 charts.compAnos = new Chart(document.getElementById('chartCompAnos'), {
                     type: 'bar',
                     data: {
@@ -741,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                if(charts.alcanceComp) charts.alcanceComp.destroy();
+                if (charts.alcanceComp) charts.alcanceComp.destroy();
                 charts.alcanceComp = new Chart(document.getElementById('chartAlcanceComp'), {
                     type: 'line',
                     data: {
@@ -752,17 +754,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             { label: '2026', data: compLabelsSorted.map(l => (compDataByYear['2026'][l] && compDataByYear['2026'][l].meta > 0) ? (compDataByYear['2026'][l].arrecadado / compDataByYear['2026'][l].meta) * 100 : 0), borderColor: '#10b981', tension: 0.3 }
                         ]
                     },
-                    options: { 
+                    options: {
                         layout: { padding: { top: 30, bottom: 10 } },
-                        plugins: { 
+                        plugins: {
                             legend: { position: 'bottom', labels: { padding: 20 } },
-                            datalabels: { 
-                                align: 'top', 
-                                anchor: 'end', 
+                            datalabels: {
+                                align: 'top',
+                                anchor: 'end',
                                 offset: 2,
                                 formatter: v => v > 0 ? v.toFixed(0) + '%' : '',
                                 font: { size: 9, weight: 'bold' }
-                            } 
+                            }
                         },
                         scales: {
                             y: { beginAtZero: true, max: 130, ticks: { callback: v => v + '%' } }
@@ -774,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activePanelId === 'operadores' || activePanelId === 'quartil') {
                 let filteredOperators = operadores.filter(o => {
                     if (selEq.length > 0 && !selEq.some(eq => opMatches(o.operacao, eq) || opMatches(o.nova_lotacao, eq))) return false;
-                    
+
                     const mNorm = o.mes;
                     const year = (o.ano || "").toString();
                     if (selAno.length > 0 && !selAno.includes(year)) return false;
@@ -802,9 +804,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     filteredOperators.forEach(op => {
                         // Create a unique key for EACH record (Agent + Month + Year) to prevent summation
                         const recordKey = `${op.agente}_${op.mes}_${op.ano}`;
-                        if(!aggOps[recordKey]) {
+                        if (!aggOps[recordKey]) {
                             aggOps[recordKey] = {
-                                agente: op.agente, 
+                                agente: op.agente,
                                 operacao: op.operacao,
                                 matricula: op.matricula,
                                 mes: op.mes,
@@ -836,12 +838,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const opGrid = document.getElementById('operatorsGrid');
                     if (opGrid) {
                         opGrid.innerHTML = '';
-                        Object.values(aggOps).sort((a,b) => b.ho - a.ho).slice(0, 300).forEach(op => {
+                        Object.values(aggOps).sort((a, b) => b.ho - a.ho).slice(0, 300).forEach(op => {
                             const qNum = op.quartil_ho ? (op.quartil_ho.includes('1') ? '1' : op.quartil_ho.includes('2') ? '2' : op.quartil_ho.includes('3') ? '3' : op.quartil_ho.includes('4') ? '4' : '0') : '0';
                             const badgeCls = `badge-${qNum}q`;
                             const displayQ = qNum !== '0' ? `${qNum}º Q` : '-';
-                            
-                             opGrid.innerHTML += `
+
+                            opGrid.innerHTML += `
                                  <div class="op-card">
                                      <div class="op-quartil-badge ${badgeCls}">${displayQ}</div>
                                      <div class="op-header">
@@ -874,45 +876,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     const q2Stats = {};
                     const q3Stats = {};
                     const q4Stats = {};
-                    const distCount = {'1º Quartil': 0, '2º Quartil': 0, '3º Quartil': 0, '4º Quartil': 0};
+                    const distCount = { '1º Quartil': 0, '2º Quartil': 0, '3º Quartil': 0, '4º Quartil': 0 };
 
                     filteredOperators.forEach(op => {
                         const rawQ = op.quartil_ho ? op.quartil_ho.toString() : '';
                         const mesStr = op.mes ? normalizeMonth(op.mes) : '?';
-                        
-                        if(rawQ.includes('1')) {
+
+                        if (rawQ.includes('1')) {
                             distCount['1º Quartil']++;
-                            if(!q1Stats[op.agente]) q1Stats[op.agente] = {count: 0, meses: []};
+                            if (!q1Stats[op.agente]) q1Stats[op.agente] = { count: 0, meses: [] };
                             q1Stats[op.agente].count++;
-                            if(!q1Stats[op.agente].meses.includes(mesStr)) q1Stats[op.agente].meses.push(mesStr);
+                            if (!q1Stats[op.agente].meses.includes(mesStr)) q1Stats[op.agente].meses.push(mesStr);
                         }
-                        else if(rawQ.includes('2')) {
+                        else if (rawQ.includes('2')) {
                             distCount['2º Quartil']++;
-                            if(!q2Stats[op.agente]) q2Stats[op.agente] = {count: 0, meses: []};
+                            if (!q2Stats[op.agente]) q2Stats[op.agente] = { count: 0, meses: [] };
                             q2Stats[op.agente].count++;
-                            if(!q2Stats[op.agente].meses.includes(mesStr)) q2Stats[op.agente].meses.push(mesStr);
+                            if (!q2Stats[op.agente].meses.includes(mesStr)) q2Stats[op.agente].meses.push(mesStr);
                         }
-                        else if(rawQ.includes('3')) {
+                        else if (rawQ.includes('3')) {
                             distCount['3º Quartil']++;
-                            if(!q3Stats[op.agente]) q3Stats[op.agente] = {count: 0, meses: []};
+                            if (!q3Stats[op.agente]) q3Stats[op.agente] = { count: 0, meses: [] };
                             q3Stats[op.agente].count++;
-                            if(!q3Stats[op.agente].meses.includes(mesStr)) q3Stats[op.agente].meses.push(mesStr);
+                            if (!q3Stats[op.agente].meses.includes(mesStr)) q3Stats[op.agente].meses.push(mesStr);
                         }
-                        else if(rawQ.includes('4')) {
+                        else if (rawQ.includes('4')) {
                             distCount['4º Quartil']++;
-                            if(!q4Stats[op.agente]) q4Stats[op.agente] = {count: 0, meses: []};
+                            if (!q4Stats[op.agente]) q4Stats[op.agente] = { count: 0, meses: [] };
                             q4Stats[op.agente].count++;
-                            if(!q4Stats[op.agente].meses.includes(mesStr)) q4Stats[op.agente].meses.push(mesStr);
+                            if (!q4Stats[op.agente].meses.includes(mesStr)) q4Stats[op.agente].meses.push(mesStr);
                         }
                     });
 
                     const renderQCards = (statsMap, containerId, iconClass, colorClass) => {
-                        const arr = Object.entries(statsMap).sort((a,b) => b[1].count - a[1].count).slice(0, 12);
+                        const arr = Object.entries(statsMap).sort((a, b) => b[1].count - a[1].count).slice(0, 12);
                         const container = document.getElementById(containerId);
                         if (!container) return;
                         container.innerHTML = '';
-                        if(arr.length === 0) container.innerHTML = '<div style="color:var(--text-secondary); padding: 20px;">Nenhum operador registrado.</div>';
-                        
+                        if (arr.length === 0) container.innerHTML = '<div style="color:var(--text-secondary); padding: 20px;">Nenhum operador registrado.</div>';
+
                         let colorHex = 'var(--text-primary)';
                         if (colorClass === 'badge-1q') colorHex = 'var(--accent-emerald)';
                         if (colorClass === 'badge-2q') colorHex = 'var(--accent-blue)';
@@ -922,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         arr.forEach((item, idx) => {
                             container.innerHTML += `
                                 <div class="q-card ${idx < 3 ? 'highlight' : ''}" style="${idx < 3 && colorClass === 'badge-1q' ? 'border-color: rgba(16,185,129,0.3); animation: pulse-glow-green 2s infinite;' : ''}">
-                                    <div class="q-rank" style="background: var(--bg-secondary); border: 1px solid var(--border);">#${idx+1}</div>
+                                    <div class="q-rank" style="background: var(--bg-secondary); border: 1px solid var(--border);">#${idx + 1}</div>
                                     <div class="q-info">
                                         <div class="q-name">${item[0]}</div>
                                         <div class="q-count" style="color: ${colorHex}"><i class="${iconClass}"></i> ${item[1].count} vezes</div>
@@ -938,7 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderQCards(q3Stats, 'quartil3Cards', 'fas fa-award', 'badge-3q');
                     renderQCards(q4Stats, 'quartil4Cards', 'fas fa-exclamation-triangle', 'badge-4q');
 
-                    if(charts.quartilDist) charts.quartilDist.destroy();
+                    if (charts.quartilDist) charts.quartilDist.destroy();
                     const ctxDist = document.getElementById('chartQuartilDist');
                     if (ctxDist) {
                         charts.quartilDist = new Chart(ctxDist, {
@@ -951,10 +953,87 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+
+            if (activePanelId === 'alares') {
+                const filteredAlares = (DASHBOARD_DATA.alares || []).filter(d => {
+                    const mNorm = d.mes;
+                    const year = (d.ano || "").toString();
+                    if (selAno.length > 0 && !selAno.includes(year)) return false;
+                    if (selMes.length > 0 && !selMes.includes(mNorm)) return false;
+                    return true;
+                });
+
+                // KPIs
+                const totalVar = filteredAlares.reduce((s, d) => s + (d.variavel || 0), 0);
+                const totalDig = filteredAlares.reduce((s, d) => s + (d.digital || 0), 0);
+                const totalPA = filteredAlares.reduce((s, d) => s + (d.pa_fixa || 0), 0);
+                const totalVarFixa = filteredAlares.reduce((s, d) => s + (d.var_fixa || 0), 0);
+                const totalFinal = filteredAlares.reduce((s, d) => s + (d.total || 0), 0);
+
+                const kpiAlares = document.getElementById('kpiAlares');
+                if (kpiAlares) {
+                    kpiAlares.innerHTML = `
+                        <div class="kpi-card blue"><div class="kpi-icon"><i class="fas fa-coins"></i></div><div class="kpi-value">${formatBRL(totalVar)}</div><div class="kpi-label">Total Variável</div></div>
+                        <div class="kpi-card green"><div class="kpi-icon"><i class="fas fa-mobile-alt"></i></div><div class="kpi-value">${formatBRL(totalDig)}</div><div class="kpi-label">Total Digital</div></div>
+                        <div class="kpi-card amber"><div class="kpi-icon"><i class="fas fa-desktop"></i></div><div class="kpi-value">${formatBRL(totalPA)}</div><div class="kpi-label">Total PA Fixa</div></div>
+                        <div class="kpi-card cyan" style="border: 1px solid var(--accent-blue); background: rgba(6,182,212,0.1);"><div class="kpi-icon"><i class="fas fa-plus-circle"></i></div><div class="kpi-value">${formatBRL(totalVarFixa)}</div><div class="kpi-label">Variável + Fixa</div></div>
+                        <div class="kpi-card purple" style="transform: scale(1.05); border: 1px solid var(--accent-purple); box-shadow: 0 0 20px rgba(139,92,246,0.2);"><div class="kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div><div class="kpi-value">${formatBRL(totalFinal)}</div><div class="kpi-label" style="font-weight: bold; color: #fff;">VALOR FINAL</div></div>
+                    `;
+                }
+
+                // Table
+                const tbody = document.getElementById('tbodyAlares');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    filteredAlares.sort((a, b) => {
+                        const months = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                        return (a.ano * 100 + months.indexOf(a.mes)) - (b.ano * 100 + months.indexOf(b.mes));
+                    }).forEach(d => {
+                        const row = document.createElement('tr');
+                        row.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                        row.innerHTML = `
+                            <td style="padding: 12px; text-transform: capitalize;">${d.mes} ${d.ano}</td>
+                            <td style="padding: 12px; text-align: right;">${formatBRL(d.variavel)}</td>
+                            <td style="padding: 12px; text-align: right;">${formatBRL(d.digital)}</td>
+                            <td style="padding: 12px; text-align: right;">${formatBRL(d.pa_fixa)}</td>
+                            <td style="padding: 12px; text-align: right; color: var(--accent-blue); font-weight: 500;">${formatBRL(d.var_fixa)}</td>
+                            <td style="padding: 12px; text-align: right; font-weight: bold; color: var(--accent-emerald); background: rgba(16,185,129,0.05);">${formatBRL(d.total)}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                // Chart
+                if (charts.alaresEvol) charts.alaresEvol.destroy();
+                const ctxEvol = document.getElementById('chartAlaresEvol');
+                if (ctxEvol) {
+                    const sortedData = [...filteredAlares].sort((a, b) => {
+                        const months = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                        return (a.ano * 100 + months.indexOf(a.mes)) - (b.ano * 100 + months.indexOf(b.mes));
+                    });
+                    charts.alaresEvol = new Chart(ctxEvol, {
+                        type: 'line',
+                        data: {
+                            labels: sortedData.map(d => `${d.mes.substring(0, 3).toUpperCase()} ${d.ano}`),
+                            datasets: [
+                                { label: 'Variável', data: sortedData.map(d => d.variavel), borderColor: '#3b82f6', fill: false, tension: 0.3 },
+                                { label: 'Digital', data: sortedData.map(d => d.digital), borderColor: '#10b981', fill: false, tension: 0.3 },
+                                { label: 'PA Fixa', data: sortedData.map(d => d.pa_fixa), borderColor: '#f59e0b', fill: false, tension: 0.3 },
+                                { label: 'V+F', data: sortedData.map(d => d.var_fixa), borderColor: '#06b6d4', borderDash: [5, 5], fill: false, tension: 0.3 },
+                                { label: 'Total', data: sortedData.map(d => d.total), borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', fill: true, tension: 0.3, borderWidth: 3 }
+                            ]
+                        },
+                        options: {
+                            plugins: { datalabels: { display: false } },
+                            scales: { y: { ticks: { callback: v => formatBRL(v) } } }
+                        }
+                    });
+                }
+            }
         }
 
         setTimeout(() => {
-            ['overview', 'faturamento', 'comparativo', 'operadores', 'quartil'].forEach(p => updateTeamFilter(p));
+            ['overview', 'faturamento', 'comparativo', 'operadores', 'quartil', 'alares'].forEach(p => updateTeamFilter(p));
             renderCharts();
         }, 300);
     };

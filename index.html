@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
     <!-- Login Overlay -->
@@ -40,6 +40,7 @@
             <li class="nav-item" data-panel="comparativo"><i class="fas fa-exchange-alt"></i><span>Comparativo Anual</span></li>
             <li class="nav-item" data-panel="operadores"><i class="fas fa-users"></i><span>Operadores</span></li>
             <li class="nav-item" data-panel="quartil"><i class="fas fa-trophy"></i><span>Quartil Ranking</span></li>
+            <li class="nav-item" data-panel="alares"><i class="fas fa-satellite-dish"></i><span>ALARES</span></li>
         </ul>
         <div style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: auto;">
             <button id="logoutBtn" style="width: 100%; padding: 12px; background: rgba(244,63,94,0.1); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
@@ -146,10 +147,42 @@
                 </div>
             </div>
         </section>
+
+        <!-- Panel: ALARES -->
+        <section class="panel" id="panel-alares">
+            <div class="filters-bar" id="filters-alares"></div>
+
+            <div class="kpi-row" id="kpiAlares"></div>
+
+            <div class="charts-grid">
+                <div class="chart-card full-width">
+                    <div class="chart-header"><h3><i class="fas fa-chart-line"></i> Evolução ALARES - Mensal</h3></div>
+                    <div class="chart-container"><canvas id="chartAlaresEvol"></canvas></div>
+                </div>
+                <div class="chart-card full-width">
+                    <div class="chart-header"><h3><i class="fas fa-table"></i> Detalhamento Mensal - ALARES</h3></div>
+                    <div class="table-container" style="overflow-x: auto; background: var(--card-bg); border-radius: 12px; padding: 20px;">
+                        <table class="data-table" id="tableAlares" style="width: 100%; border-collapse: collapse; color: #fff;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left;">Mês/Ano</th>
+                                    <th style="padding: 12px; text-align: right;">Variável</th>
+                                    <th style="padding: 12px; text-align: right;">Digital</th>
+                                    <th style="padding: 12px; text-align: right;">PA Fixa</th>
+                                    <th style="padding: 12px; text-align: right; color: var(--accent-blue);">Variável + Fixa</th>
+                                    <th style="padding: 12px; text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyAlares"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
     </div>
 
-    <script src="data.js?v=28"></script>
-    <script src="app.js?v=28"></script>
+    <script src="data_v2.js?v=1"></script>
+    <script src="app.js?v=31"></script>
 </body>
 </html>
