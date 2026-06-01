@@ -189,7 +189,7 @@ all_data['fechamentos2026'] = fechamentos2026
 
 # =============================================================
 # META 2025
-# Col: MÊS | OPERAÇÃO | ARRECADADO | META | FATURAMENTO | ALCANCE
+# Col: MÊS | OPERAÇÃO | HONORARIOS | META | ALCANCE | PA | META PA | ...
 # =============================================================
 ws = wb['META 2025']
 meta2025 = []
@@ -199,10 +199,11 @@ for row in ws.iter_rows(min_row=2, max_row=ws.max_row, values_only=True):
     rec = {
         'mes':        normalize_mes(row[0]),
         'operacao':   str(row[1]).strip() if row[1] else None,
-        'arrecadado': row[2] if isinstance(row[2], (int, float)) else None,
+        'ho':         row[2] if isinstance(row[2], (int, float)) else None,
         'meta':       row[3] if isinstance(row[3], (int, float)) else None,
-        'faturamento':row[4] if isinstance(row[4], (int, float)) else None,
-        'alcance':    row[5] if isinstance(row[5], (int, float)) else None,
+        'alcance':    row[4] if isinstance(row[4], (int, float)) else None,
+        'pa':         row[5] if isinstance(row[5], (int, float)) else None,
+        'meta_pa':    row[6] if isinstance(row[6], (int, float)) else None,
         'ano':        2025
     }
     if rec.get('operacao'):
@@ -211,6 +212,7 @@ all_data['meta2025'] = meta2025
 
 # =============================================================
 # META 2024
+# Col: MÊS | OPERAÇÃO | HONORARIOS | META | PROJEÇÃO | ALCANCE
 # =============================================================
 ws = wb['META 2024']
 meta2024 = []
@@ -220,9 +222,9 @@ for row in ws.iter_rows(min_row=2, max_row=ws.max_row, values_only=True):
     rec = {
         'mes':        normalize_mes(row[0]),
         'operacao':   str(row[1]).strip() if row[1] else None,
-        'arrecadado': row[2] if isinstance(row[2], (int, float)) else None,
+        'ho':         row[2] if isinstance(row[2], (int, float)) else None,
         'meta':       row[3] if isinstance(row[3], (int, float)) else None,
-        'faturamento':row[4] if isinstance(row[4], (int, float)) else None,
+        'projecao':   row[4] if isinstance(row[4], (int, float)) else None,
         'alcance':    row[5] if isinstance(row[5], (int, float)) else None,
         'ano':        2024
     }
@@ -283,7 +285,12 @@ all_data['quartil_raw'] = quartil
 # =============================================================
 # CAPACITY
 # =============================================================
-all_data['capacity_raw'] = [list(row) for row in wb['CAPACITY'].iter_rows(min_row=4, max_row=10, values_only=True)]
+try:
+    if 'CAPACITY' in wb.sheetnames:
+        all_data['capacity_raw'] = [list(row) for row in wb['CAPACITY'].iter_rows(min_row=4, max_row=10, values_only=True)]
+except Exception as e:
+    print(f"Warning extracting CAPACITY: {e}")
+
 
 # =============================================================
 # CUSTOS
