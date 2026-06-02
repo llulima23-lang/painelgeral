@@ -346,6 +346,57 @@ except Exception as e:
     all_data['alares'] = []
 
 # =============================================================
+# AGORACRED
+# =============================================================
+try:
+    if 'FATURAMENTO AGORACRED- PLANO' in wb.sheetnames:
+        ws_agoracred = wb['FATURAMENTO AGORACRED- PLANO']
+        agoracred_list = []
+        for row in ws_agoracred.iter_rows(min_row=2, max_row=ws_agoracred.max_row, values_only=True):
+            if row[0] is None and row[1] is None:
+                continue
+            
+            periodo = serialize(row[0])
+            mes_pg_nota = serialize(row[1])
+            fat_quinzena = row[2] if isinstance(row[2], (int, float)) else 0
+            imposto_nota = row[3] if isinstance(row[3], (int, float)) else 0
+            numero_nf = serialize(row[4])
+            fat_plano = row[5] if isinstance(row[5], (int, float)) else 0
+            fat_produzido = row[6] if isinstance(row[6], (int, float)) else 0
+            
+            # Simple month/year extraction for filters if possible
+            # MÊS PG NOTA looks like it might contain the month
+            mes_norm = normalize_mes(row[1]) if row[1] else normalize_mes(row[0])
+            
+            ano = ''
+            if isinstance(row[1], datetime):
+                ano = str(row[1].year)
+            elif isinstance(row[1], str):
+                match = re.search(r'\b(202\d)\b', row[1])
+                if match: ano = match.group(1)
+            
+            if not ano and isinstance(row[0], str):
+                match = re.search(r'\b(202\d)\b', row[0])
+                if match: ano = match.group(1)
+            
+            agoracred_list.append({
+                'periodo': periodo,
+                'mes_pg_nota': mes_pg_nota,
+                'mes_norm': mes_norm,
+                'ano': ano,
+                'fat_quinzena': fat_quinzena,
+                'imposto_nota': imposto_nota,
+                'numero_nf': numero_nf,
+                'fat_plano': fat_plano,
+                'fat_produzido': fat_produzido
+            })
+        all_data['agoracred'] = agoracred_list
+        print(f"  AGORACRED:           {len(agoracred_list)}")
+except Exception as e:
+    print(f"  Warning: Could not process AGORACRED sheet: {e}")
+    all_data['agoracred'] = []
+
+# =============================================================
 # Write data.js
 # =============================================================
 out_path = r'c:\Users\sup.luciana\Desktop\AntiGravity\PAINEL GERAL\data_v2.js'

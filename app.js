@@ -13,8 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/[^A-Z0-9]/g, ''); // Keep only alphanumeric
         };
 
-        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026, abs_geral_timeline, alares } = DASHBOARD_DATA;
+        const { operadores, meta2025, meta2024, meta_cnu, producao_operacoes, fechamentos2026, abs_geral_timeline, alares, agoracred } = DASHBOARD_DATA;
         const alaresData = alares || [];
+        const agoracredData = agoracred || [];
         const absData = DASHBOARD_DATA.abs_data || {};
         const absGeralTimeline = abs_geral_timeline || [];
 
@@ -192,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buildFiltersHTML('operadores', eqOper, true);
         buildFiltersHTML('quartil', eqOper, true);
         buildFiltersHTML('alares', [], false, true);
+        buildFiltersHTML('agoracred', [], false, true);
 
         const initSelects = () => {
             document.querySelectorAll('.custom-select').forEach(el => {
@@ -1030,10 +1032,73 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }
+            if (activePanelId === 'agoracred') {
+                const filteredAgoracred = (DASHBOARD_DATA.agoracred || []).filter(d => {
+                    const mNorm = d.mes_norm;
+                    if (selMes.length > 0 && mNorm && !selMes.includes(mNorm)) return false;
+                    
+                    const year = d.ano || "";
+                    if (selAno.length > 0 && year && !selAno.includes(year)) return false;
+                    
+                    return true;
+                });
+
+                const totalPlano = filteredAgoracred.reduce((s, d) => s + (d.fat_plano || 0), 0);
+                const totalProduzido = filteredAgoracred.reduce((s, d) => s + (d.fat_produzido || 0), 0);
+                const diferenca = totalPlano - totalProduzido;
+
+                const kpiAgoracred = document.getElementById('kpiAgoracred');
+                if (kpiAgoracred) {
+                    kpiAgoracred.innerHTML = `
+                        <div class="kpi-card blue"><div class="kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div><div class="kpi-value">${formatBRL(totalPlano)}</div><div class="kpi-label">Faturamento Plano</div></div>
+                        <div class="kpi-card green"><div class="kpi-icon"><i class="fas fa-chart-line"></i></div><div class="kpi-value">${formatBRL(totalProduzido)}</div><div class="kpi-label">Fat Produzido Mês</div></div>
+                        <div class="kpi-card ${diferenca >= 0 ? 'cyan' : 'rose'}" style="border: 1px solid var(--accent-${diferenca >= 0 ? 'blue' : 'rose'});"><div class="kpi-icon"><i class="fas fa-balance-scale"></i></div><div class="kpi-value">${formatBRL(diferenca)}</div><div class="kpi-label">Diferença</div></div>
+                    `;
+                }
+
+                const tbody = document.getElementById('tbodyAgoracred');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    filteredAgoracred.forEach(d => {
+                        const diff = (d.fat_plano || 0) - (d.fat_produzido || 0);
+                        const row = document.createElement('tr');
+                        row.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                        row.innerHTML = `
+                            <td style="padding: 12px;">${d.periodo || ''} / ${d.mes_pg_nota || ''}</td>
+                            <td style="padding: 12px; text-align: right;">${d.numero_nf || ''}</td>
+                            <td style="padding: 12px; text-align: right;">${formatBRL(d.fat_quinzena)}</td>
+                            <td style="padding: 12px; text-align: right;">${formatBRL(d.imposto_nota)}</td>
+                            <td style="padding: 12px; text-align: right; color: var(--accent-blue); font-weight: 500;">${formatBRL(d.fat_plano)}</td>
+                            <td style="padding: 12px; text-align: right; color: var(--accent-green); font-weight: 500;">${formatBRL(d.fat_produzido)}</td>
+                            <td style="padding: 12px; text-align: right; font-weight: bold; color: ${diff >= 0 ? '#10b981' : '#f43f5e'};">${formatBRL(diff)}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                if (charts.agoracredDif) charts.agoracredDif.destroy();
+                const ctxDif = document.getElementById('chartAgoracredDif');
+                if (ctxDif) {
+                    charts.agoracredDif = new Chart(ctxDif, {
+                        type: 'bar',
+                        data: {
+                            labels: filteredAgoracred.map(d => d.periodo || d.mes_pg_nota || 'N/A'),
+                            datasets: [
+                                { label: 'Faturamento Plano', data: filteredAgoracred.map(d => d.fat_plano), backgroundColor: '#3b82f6', borderRadius: 4 },
+                                { label: 'Fat Produzido', data: filteredAgoracred.map(d => d.fat_produzido), backgroundColor: '#10b981', borderRadius: 4 }
+                            ]
+                        },
+                        options: {
+                            plugins: { datalabels: { display: false } },
+                            scales: { y: { ticks: { callback: v => formatBRL(v) } } }
+                        }
+                    });
+                }
+            }
         }
 
         setTimeout(() => {
-            ['overview', 'faturamento', 'comparativo', 'operadores', 'quartil', 'alares'].forEach(p => updateTeamFilter(p));
+            ['overview', 'faturamento', 'comparativo', 'operadores', 'quartil', 'alares', 'agoracred'].forEach(p => updateTeamFilter(p));
             renderCharts();
         }, 300);
     };

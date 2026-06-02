@@ -41,6 +41,7 @@
             <li class="nav-item" data-panel="operadores"><i class="fas fa-users"></i><span>Operadores</span></li>
             <li class="nav-item" data-panel="quartil"><i class="fas fa-trophy"></i><span>Quartil Ranking</span></li>
             <li class="nav-item" data-panel="alares"><i class="fas fa-satellite-dish"></i><span>ALARES</span></li>
+            <li class="nav-item" data-panel="agoracred"><i class="fas fa-credit-card"></i><span>Agoracred</span></li>
         </ul>
         <div style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: auto;">
             <button id="logoutBtn" style="width: 100%; padding: 12px; background: rgba(244,63,94,0.1); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
@@ -174,6 +175,39 @@
                                 </tr>
                             </thead>
                             <tbody id="tbodyAlares"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel: Agoracred -->
+        <section class="panel" id="panel-agoracred">
+            <div class="filters-bar" id="filters-agoracred"></div>
+
+            <div class="kpi-row" id="kpiAgoracred"></div>
+
+            <div class="charts-grid">
+                <div class="chart-card full-width">
+                    <div class="chart-header"><h3><i class="fas fa-chart-bar"></i> Faturamento Plano vs Produzido Mês</h3></div>
+                    <div class="chart-container"><canvas id="chartAgoracredDif"></canvas></div>
+                </div>
+                <div class="chart-card full-width">
+                    <div class="chart-header"><h3><i class="fas fa-table"></i> Detalhamento Mensal - Agoracred</h3></div>
+                    <div class="table-container" style="overflow-x: auto; background: var(--card-bg); border-radius: 12px; padding: 20px;">
+                        <table class="data-table" id="tableAgoracred" style="width: 100%; border-collapse: collapse; color: #fff;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left;">Período / Mês PG Nota</th>
+                                    <th style="padding: 12px; text-align: right;">Número NF</th>
+                                    <th style="padding: 12px; text-align: right;">Fat Quinzena</th>
+                                    <th style="padding: 12px; text-align: right;">Imposto Nota</th>
+                                    <th style="padding: 12px; text-align: right; color: var(--accent-blue);">Faturamento Plano</th>
+                                    <th style="padding: 12px; text-align: right; color: var(--accent-green);">Fat Produzido Mês</th>
+                                    <th style="padding: 12px; text-align: right; color: #f59e0b;">Diferença</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyAgoracred"></tbody>
                         </table>
                     </div>
                 </div>
